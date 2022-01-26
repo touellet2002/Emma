@@ -33,7 +33,7 @@ def micro_to_text():
 command = micro_to_text()
 print(command)
 
-if(command == "Salut Amber"):
+if(command == "salut Amber"):
     print("Salut!")
-if(command == "dit que je suis beau"):
+if(command == "dis que je suis beau"):
     print("Tu es beau.")
