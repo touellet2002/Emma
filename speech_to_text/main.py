@@ -18,7 +18,7 @@ def file_to_text(filename):
 
 # Permet de générer des strings en temps réel à partir du microphone.
 def micro_to_text():
-    text = "Je ne sais pas!"
+    text = "Je n'ai pas compris."
     r = sr.Recognizer()
     with sr.Microphone() as source:
         try:
