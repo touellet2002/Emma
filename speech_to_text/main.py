@@ -30,5 +30,10 @@ def micro_to_text():
 
 
 # test
-print(micro_to_text())
+command = micro_to_text()
+print(command)
 
+if(command == "Salut Amber"):
+    print("Salut!")
+if(command == "dit que je suis beau"):
+    print("Tu es beau.")
