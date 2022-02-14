@@ -18,5 +18,3 @@ router.get('/off', (req, res) => {
 
 
 module.exports = router;
-
-
