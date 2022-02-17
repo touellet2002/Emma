@@ -1,18 +1,19 @@
 const express = require('express');
-const MqttClient = require('../../config/MqttConfig');
+const mqttClient = require('../../config/MqttConfig');
 
 // Get Router
 const router = express.Router();
 
 // Generate get route
 router.get('/on', (req, res) => {
-    MqttClient.publish('Test', 'on');
+    console.log(mqttClient);
+    mqttClient.publish('test', 'on');
     res.send('on');
 });
 
 // Generate get route
 router.get('/off', (req, res) => {
-    MqttClient.publish('Test', 'off');
+    mqttClient.publish('test', 'off');
     res.send('off');
 });
 
