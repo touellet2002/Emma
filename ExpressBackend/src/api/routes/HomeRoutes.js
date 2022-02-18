@@ -3,19 +3,19 @@ const model = require('../models/homeModel');
 const user = require('../models/UserModel');
 
 router.get('/home', (req, res) => {
-    model.find({}, (err, homes) => {
+    model.aggregate([
+        {
+            $lookup: {
+                from: 'users',
+                localField: '_owner',
+                foreignField: '_id',
+                as: '_owner'
+            }
+        }
+    ], (err, homes) => {
         if (err) {
             res.send(err);
         } else {
-            homes.forEach((part, index) => {
-                user.findById(part._owner, (err, user) => {
-                    if (err) {
-                        res.send(err);
-                    } else {
-                        homes[index]._owner = user;
-                    }
-                })
-            }, homes);
             res.send(homes);
         }
     });
