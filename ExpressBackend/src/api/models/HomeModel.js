@@ -5,17 +5,18 @@ const schema = new mongoose.Schema({
         type: String,
         required: true
     },
-    email: {
+    address: {
         type: String,
         required: true
     },
-    password: {
-        type: String,
-        required: true
+    _owner: {
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
+        ref: 'User'
     }
 }, {
     timestamps: true
 });
 
-const User = mongoose.model('User', schema);
-module.exports = User;
+const Home = mongoose.model('Home', schema);
+module.exports = Home;
