@@ -71,3 +71,4 @@ router.delete('/home', (req, res) => {
 });
 
 module.exports = router;
+module.exports = router;

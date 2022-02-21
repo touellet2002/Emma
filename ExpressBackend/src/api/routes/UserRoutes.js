@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const model = require('../models/UserModel');
+const crypto = require('crypto');
 
 router.get('/user', (req, res) => {
     model.find({}, (err, users) => {

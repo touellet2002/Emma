@@ -12,6 +12,7 @@
   "license": "ISC",
   "dependencies": {
     "body-parser": "^1.19.1",
+    "crypto": "^1.0.1",
     "dotenv": "^15.0.1",
     "express": "^4.17.2",
     "mongo": "^0.1.0",
