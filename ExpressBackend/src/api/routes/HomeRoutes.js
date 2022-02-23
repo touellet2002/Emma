@@ -1,8 +1,9 @@
 const router = require('express').Router();
 const model = require('../models/homeModel');
 const user = require('../models/UserModel');
+const { authenticateToken, authenticateDeveloper } = require('../plugins/JwtPlugin');
 
-router.get('/home', (req, res) => {
+router.get('/home', authenticateDeveloper, (req, res) => {
     model.aggregate([
         {
             $lookup: {
@@ -21,7 +22,7 @@ router.get('/home', (req, res) => {
     });
 });
 
-router.get('/home/:id', (req, res) => {
+router.get('/home/:id', authenticateToken, (req, res) => {
     model.findById(req.params.id, (err, home) => {
         if (err) {
             res.send(err);
@@ -38,7 +39,7 @@ router.get('/home/:id', (req, res) => {
     })
 })
 
-router.post('/home', (req, res) => {
+router.post('/home', authenticateToken, (req, res) => {
     const home = new model(req.body);
 
     home.save((err, home) => {
@@ -50,7 +51,7 @@ router.post('/home', (req, res) => {
     });
 })
 
-router.put('/home', (req, res) => {
+router.put('/home', authenticateToken, (req, res) => {
     model.findByIdAndUpdate(req.body._id, req.body, (err, home) => {
         if (err) {
             res.send(err);

@@ -1,13 +1,17 @@
 const jwt = require('jsonwebtoken');
+const roles = require('../constants/roles');
 
 const generateAccessToken = (text) => {
-    return jwt.sign({ _id: text }, process.env.TOKEN_SECRET, { expiresIn: '1800s' });
+    return jwt.sign({ user: { 
+            _id: text._id,
+            role: text.role
+        }
+    }, process.env.TOKEN_SECRET, { expiresIn: '1800s' });
 }  
 
 const authenticateToken = (req, res, next) => {
-    const authHeader = req.headers['authorization']
-    const token = authHeader && authHeader.split(' ')[1]
-  
+    const token = req.headers['authorization']
+
     if (token == null) return res.sendStatus(401)
   
     jwt.verify(token, process.env.TOKEN_SECRET, (err, user) => {
@@ -15,7 +19,24 @@ const authenticateToken = (req, res, next) => {
 
         if (err) return res.sendStatus(403)
 
-        req.user = user
+        next()
+    });
+}
+
+const authenticateDeveloper = (req, res, next) => {
+    const token = req.headers['authorization']
+
+    console.log(token)
+    if (token == null) return res.sendStatus(401)
+
+    jwt.verify(token, process.env.TOKEN_SECRET, (err, info) => {
+        console.log(err)
+
+        console.log(info)
+
+        if (err) return res.sendStatus(403)
+
+        if (info.user.role !== roles.Developer) return res.sendStatus(403)
 
         next()
     });
@@ -23,6 +44,7 @@ const authenticateToken = (req, res, next) => {
 
 module.exports = {
     generateAccessToken,
-    authenticateToken
+    authenticateToken,
+    authenticateDeveloper
 }
 

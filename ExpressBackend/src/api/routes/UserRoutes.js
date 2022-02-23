@@ -1,7 +1,8 @@
 const router = require('express').Router();
 const model = require('../models/UserModel');
 const { encrypt, hash } = require('../plugins/cryptoPlugin');
-const { generateAccessToken, authenticateToken } = require('../plugins/JwtPlugin');
+const { generateAccessToken } = require('../plugins/JwtPlugin');
+const roles = require('../constants/roles');
 
 router.get('/', (req, res) => {
     model.find({}, (err, users) => {
@@ -59,7 +60,8 @@ router.post('/register', (req, res) => {
     const userData = {
         name: req.body.name,
         email: req.body.email,
-        password: req.body.password
+        password: req.body.password,
+        role: roles.Developer
     }
 
     model.findOne({ email: userData.email }, (err, user) => {
@@ -95,7 +97,7 @@ router.post('/auth', (req, res) => {
                 if (user.password === hash(req.body.password)) {
                     res.json({
                         success: true,
-                        token: generateAccessToken(user._id)
+                        token: generateAccessToken(user)
                     });
                 } else {
                     res.json({
