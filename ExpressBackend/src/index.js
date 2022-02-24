@@ -9,6 +9,7 @@ const port = process.env.PORT || 3000;
 const mqttTestRoutes = require('./api/routes/MqttTestRoutes');
 const userRoutes = require('./api/routes/UserRoutes');
 const homeRoutes = require('./api/routes/HomeRoutes');
+const homeUserRoutes = require('./api/routes/HomeUserRoutes');
 
 // App settings
 app.use(express.json());
@@ -17,6 +18,7 @@ app.use(express.json());
 app.use("/mqtt", mqttTestRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api", homeRoutes);
+app.use("/api", homeUserRoutes);
 
 // Special routes
 app.get('/', (req, res) => {

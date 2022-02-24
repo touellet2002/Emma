@@ -1,19 +1,26 @@
 const router = require('express').Router();
-const model = require('../models/homeModel');
-const user = require('../models/UserModel');
-const { authenticateToken, authenticateDeveloper } = require('../plugins/JwtPlugin');
+const model = require('../models/HomeUserModel');
+const {
+    authenticateToken,
+    authenticateDeveloper
+} = require('../plugins/JwtPlugin');
 
-router.get('/home', authenticateDeveloper, (req, res) => {
-    model.aggregate([
-        {
-            $lookup: {
-                from: 'users',
-                localField: '_owner',
-                foreignField: '_id',
-                as: '_owner'
-            }
+router.get('/homeuser', authenticateDeveloper, (req, res) => {
+    model.aggregate([{
+        $lookup: {
+            from: 'users',
+            localField: '_user',
+            foreignField: '_id',
+            as: '_user'
         }
-    ], (err, homes) => {
+    }, {
+        $lookup: {
+            from: 'homes',
+            localField: '_home',
+            foreignField: '_id',
+            as: '_home'
+        }
+    }], (err, homes) => {
         if (err) {
             res.send(err);
         } else {
@@ -22,7 +29,7 @@ router.get('/home', authenticateDeveloper, (req, res) => {
     });
 });
 
-router.get('/home/:id', authenticateToken, (req, res) => {
+router.get('/homeuser/:id', authenticateToken, (req, res) => {
     model.findById(req.params.id, (err, home) => {
         if (err) {
             res.send(err);
@@ -39,10 +46,10 @@ router.get('/home/:id', authenticateToken, (req, res) => {
     })
 })
 
-router.post('/home', authenticateToken, (req, res) => {
-    const home = new model(req.body);
+router.post('/homeuser', authenticateToken, (req, res) => {
+    const homeUser = new model(req.body);
 
-    home.save((err, home) => {
+    homeUser.save((err, home) => {
         if (err) {
             res.send(err);
         } else {
@@ -51,7 +58,7 @@ router.post('/home', authenticateToken, (req, res) => {
     });
 })
 
-router.put('/home', authenticateToken, (req, res) => {
+router.put('/homeuser', authenticateToken, (req, res) => {
     model.findByIdAndUpdate(req.body._id, req.body, (err, home) => {
         if (err) {
             res.send(err);
@@ -61,7 +68,7 @@ router.put('/home', authenticateToken, (req, res) => {
     });
 });
 
-router.delete('/home', authenticateToken, (req, res) => {
+router.delete('/homeuser', authenticateToken, (req, res) => {
     model.findByIdAndRemove(req.body._id, (err, home) => {
         if (err) {
             res.send(err);
@@ -71,5 +78,5 @@ router.delete('/home', authenticateToken, (req, res) => {
     });
 });
 
-module.exports = router;
+
 module.exports = router;
