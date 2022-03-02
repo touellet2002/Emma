@@ -1,13 +1,7 @@
 const router = require('express').Router();
-const mongoose = require('mongoose');
 const model = require('../models/UserModel');
-const {
-    encrypt,
-    hash
-} = require('../plugins/cryptoPlugin');
-const {
-    generateAccessToken
-} = require('../plugins/JwtPlugin');
+const { encrypt, hash } = require('../plugins/cryptoPlugin');
+const { generateAccessToken } = require('../plugins/JwtPlugin');
 const roles = require('../constants/roles');
 
 router.get('/', (req, res) => {
@@ -53,56 +47,12 @@ router.put('/', (req, res) => {
 });
 
 router.delete('/', (req, res) => {
-    // Delete user
     model.findByIdAndRemove(req.body._id, (err, user) => {
         if (err) {
             res.send(err);
-        }
-    });
-
-    // Delete houses
-    const home = require('../models/homeModel');
-    home.find({
-        _owner: new mongoose.Types.ObjectId(req.body._id)
-    }, (err, homes) => {
-        if (err) {
-            res.send(err);
         } else {
-            homes.forEach(home => {
-                home.deleteOne({
-                    _id: home._id
-                }, (err, log) => {
-                    if (err) {
-                        res.send(err);
-                    }
-                });
-            });
+            res.json(user);
         }
-    });
-
-    // Delete HomeUsers
-    const homeUser = require('../models/HomeUserModel');
-    homeUser.find({
-        _user: new mongoose.Types.ObjectId(req.body._id)
-    }, (err, homeUsers) => {
-        if (err) {
-            res.send(err);
-        } else {
-            homeUsers.forEach(homeUser => {
-                homeUser.deleteOne({
-                    _id: homeUser._id
-                }, (err, log) => {
-                    if (err) {
-                        res.send(err);
-                    }
-                });
-            });
-        }
-    });
-
-    res.send({
-        status: 'success',
-        message: 'User and every related stuff has been deleted'
     });
 });
 
@@ -114,9 +64,7 @@ router.post('/register', (req, res) => {
         role: roles.Developer
     }
 
-    model.findOne({
-        email: userData.email
-    }, (err, user) => {
+    model.findOne({ email: userData.email }, (err, user) => {
         if (err) {
             res.send(err);
         } else if (user) {

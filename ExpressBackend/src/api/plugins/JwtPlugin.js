@@ -15,6 +15,7 @@ const authenticateToken = (req, res, next) => {
     if (token == null) return res.sendStatus(401)
   
     jwt.verify(token, process.env.TOKEN_SECRET, (err, user) => {
+        console.log(err)
 
         if (err) return res.sendStatus(403)
 
@@ -24,9 +25,15 @@ const authenticateToken = (req, res, next) => {
 
 const authenticateDeveloper = (req, res, next) => {
     const token = req.headers['authorization']
+
+    console.log(token)
     if (token == null) return res.sendStatus(401)
 
     jwt.verify(token, process.env.TOKEN_SECRET, (err, info) => {
+        console.log(err)
+
+        console.log(info)
+
         if (err) return res.sendStatus(403)
 
         if (info.user.role !== roles.Developer) return res.sendStatus(403)
