@@ -6,7 +6,7 @@ const generateAccessToken = (text) => {
             _id: text._id,
             role: text.role
         }
-    }, process.env.TOKEN_SECRET, { expiresIn: '1800s' });
+    }, process.env.TOKEN_SECRET, { expiresIn: '3600s' });
 }  
 
 const authenticateToken = (req, res, next) => {

@@ -61,7 +61,7 @@ router.get('/device/user/:id', authenticateToken, (req, res) => {
 router.get('/device/home/:id', authenticateToken, (req, res) => {
     model.aggregate([{
         $match: {
-            _home: req.params.id
+            _home: mongoose.Types.ObjectId(req.params.id)
         }
     }, {
         $lookup: {
