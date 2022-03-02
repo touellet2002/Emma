@@ -1,19 +1,20 @@
 const router = require('express').Router();
+const mongoose = require('mongoose');
 const model = require('../models/homeModel');
-const user = require('../models/UserModel');
-const { authenticateToken, authenticateDeveloper } = require('../plugins/JwtPlugin');
+const {
+    authenticateToken,
+    authenticateDeveloper
+} = require('../plugins/JwtPlugin');
 
 router.get('/home', authenticateDeveloper, (req, res) => {
-    model.aggregate([
-        {
-            $lookup: {
-                from: 'users',
-                localField: '_owner',
-                foreignField: '_id',
-                as: '_owner'
-            }
+    model.aggregate([{
+        $lookup: {
+            from: 'users',
+            localField: '_owner',
+            foreignField: '_id',
+            as: '_owner'
         }
-    ], (err, homes) => {
+    }], (err, homes) => {
         if (err) {
             res.send(err);
         } else {
@@ -23,20 +24,25 @@ router.get('/home', authenticateDeveloper, (req, res) => {
 });
 
 router.get('/home/:id', authenticateToken, (req, res) => {
-    model.findById(req.params.id, (err, home) => {
+
+    model.aggregate([{
+        $match: {
+            _id: new mongoose.Types.ObjectId(req.params.id)
+        }
+    }, {
+        $lookup: {
+            from: 'users',
+            localField: '_owner',
+            foreignField: '_id',
+            as: '_owner'
+        }
+    }], (err, homes) => {
         if (err) {
             res.send(err);
         } else {
-            user.findById(home._owner, (err, user) => {
-                if (err) {
-                    res.send(err);
-                } else {
-                    home._owner = user.name;
-                    res.json(home);
-                }
-            })
+            res.send(homes);
         }
-    })
+    });
 })
 
 router.post('/home', authenticateToken, (req, res) => {
