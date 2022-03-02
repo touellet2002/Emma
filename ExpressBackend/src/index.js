@@ -11,6 +11,7 @@ const userRoutes = require('./api/routes/UserRoutes');
 const homeRoutes = require('./api/routes/HomeRoutes');
 const homeUserRoutes = require('./api/routes/HomeUserRoutes');
 const deviceRoutes = require('./api/routes/DeviceRoutes');
+const commandRoutes = require('./api/routes/CommandRoutes');
 
 // App settings
 app.use(express.json());
@@ -21,6 +22,7 @@ app.use("/api/user", userRoutes);
 app.use("/api", homeRoutes);
 app.use("/api", homeUserRoutes);
 app.use("/api", deviceRoutes);
+app.use("/api", commandRoutes);
 
 // Special routes
 app.get('/', (req, res) => {

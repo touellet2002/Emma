@@ -86,10 +86,6 @@ router.get('/device/home/:id', authenticateToken, (req, res) => {
     });
 });
 
-router.get('/device/commands/:id', authenticateToken, (req, res) => {
-    // Code here
-});
-
 router.post('/device', authenticateToken, (req, res) => {
     const device = new model(req.body);
 
