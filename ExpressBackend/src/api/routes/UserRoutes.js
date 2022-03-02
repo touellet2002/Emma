@@ -100,6 +100,26 @@ router.delete('/', (req, res) => {
         }
     });
 
+    // Delete devices
+    const device = require('../models/deviceModel');
+    device.find({
+        _owner: new mongoose.Types.ObjectId(req.body._id)
+    }, (err, devices) => {
+        if (err) {
+            res.send(err);
+        } else {
+            devices.forEach(device => {
+                device.deleteOne({
+                    _id: device._id
+                }, (err, log) => {
+                    if (err) {
+                        res.send(err);
+                    }
+                });
+            });
+        }
+    });
+
     res.send({
         status: 'success',
         message: 'User and every related stuff has been deleted'
