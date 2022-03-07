@@ -36,7 +36,7 @@ router.get('/command/type/:type', authenticateToken, (req, res) => {
         } else {
             res.json(commands);
         }
-    }); 
+    });
 });
 
 router.post('/command', authenticateDeveloper, (req, res) => {

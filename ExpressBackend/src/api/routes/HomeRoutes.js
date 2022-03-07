@@ -45,7 +45,7 @@ router.get('/home/:id', authenticateToken, (req, res) => {
     });
 })
 
-router.post('/home', authenticateToken, (req, res) => {
+router.post('/home', (req, res) => {
     const home = new model(req.body);
 
     home.save((err, home) => {
@@ -77,5 +77,4 @@ router.delete('/home', authenticateToken, (req, res) => {
     });
 });
 
-module.exports = router;
 module.exports = router;
