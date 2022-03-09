@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const bodyParser = require('body-parser');
 const connectToDB = require('./config/DatabaseConfig');
 const mqttClient = require('./config/MqttConfig');
 
@@ -13,6 +14,7 @@ const homeUserRoutes = require('./api/routes/HomeUserRoutes');
 const deviceRoutes = require('./api/routes/DeviceRoutes');
 const commandRoutes = require('./api/routes/CommandRoutes');
 
+app.use(bodyParser.urlencoded({ extended: false }));
 // Log middleware
 app.use((req, res, next) => {
     console.log(req.method, req.url);

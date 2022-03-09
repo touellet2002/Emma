@@ -1,17 +1,41 @@
-const router = require('express').Router();
-const mongoose = require('mongoose');
-const model = require('../models/UserModel');
+// Imports
 const {
-    encrypt,
+    express,
+    mongoose,
+    cryptoPlugin,
+    jwtPlugin,
+    userModel,
+    homeUserModel,
+    roles,
+    jwt
+} = require('../imports');
+
+const router = express.Router();
+const {
     hash
-} = require('../plugins/cryptoPlugin');
+} = cryptoPlugin;
 const {
     generateAccessToken
-} = require('../plugins/JwtPlugin');
-const roles = require('../constants/roles');
+} = jwtPlugin;
 
+router.get('/me', jwtPlugin.authenticateToken,(req, res) => {
+    let token = req.headers['authorization'];
+
+    token = jwt.decode(token);
+
+    userModel.findById(token.user._id, (err, user) => {
+        if (err) {
+            res.send(err);
+        } else {
+            user.password = undefined;
+            res.json(user);
+        }
+    })
+});
+
+// Routes
 router.get('/', (req, res) => {
-    model.find({}, (err, users) => {
+    userModel.find({}, (err, users) => {
         if (err) {
             res.send(err);
         } else {
@@ -21,7 +45,7 @@ router.get('/', (req, res) => {
 });
 
 router.get('/:id', (req, res) => {
-    model.findById(req.params.id, (err, user) => {
+    userModel.findById(req.params.id, (err, user) => {
         if (err) {
             res.send(err);
         } else {
@@ -32,7 +56,7 @@ router.get('/:id', (req, res) => {
 })
 
 router.post('/', (req, res) => {
-    const user = new model(req.body);
+    const user = new userModel(req.body);
 
     user.save((err, user) => {
         if (err) {
@@ -44,7 +68,7 @@ router.post('/', (req, res) => {
 })
 
 router.put('/', (req, res) => {
-    model.findByIdAndUpdate(req.body._id, req.body, (err, user) => {
+    userModel.findByIdAndUpdate(req.body._id, req.body, (err, user) => {
         if (err) {
             res.send(err);
         } else {
@@ -55,14 +79,14 @@ router.put('/', (req, res) => {
 
 router.delete('/', (req, res) => {
     // Delete user
-    model.findByIdAndRemove(req.body._id, (err, user) => {
+    userModel.findByIdAndRemove(req.body._id, (err, user) => {
         if (err) {
             res.send(err);
         }
     });
 
     // Delete houses
-    const home = require('../models/homeModel');
+    const home = require('../userModels/homeuserModel');
     home.find({
         _owner: new mongoose.Types.ObjectId(req.body._id)
     }, (err, homes) => {
@@ -81,9 +105,7 @@ router.delete('/', (req, res) => {
         }
     });
 
-    // Delete HomeUsers
-    const homeUser = require('../models/HomeUserModel');
-    homeUser.find({
+    homeUserModel.find({
         _user: new mongoose.Types.ObjectId(req.body._id)
     }, (err, homeUsers) => {
         if (err) {
@@ -102,7 +124,7 @@ router.delete('/', (req, res) => {
     });
 
     // Delete devices
-    const device = require('../models/deviceModel');
+    const device = require('../userModels/deviceuserModel');
     device.find({
         _owner: new mongoose.Types.ObjectId(req.body._id)
     }, (err, devices) => {
@@ -128,6 +150,41 @@ router.delete('/', (req, res) => {
 });
 
 router.post('/register', (req, res) => {
+    
+    const errorHolder = {
+        success: false,
+        errors: []
+    }
+
+    if(!req.body.name) {
+        errorHolder.errors.push({'field': 'name', 'message': 'Le nom est requis'});
+    }
+    // Regex validation
+    else if(!req.body.name.match(/^[a-zA-Z0-9_]{3,20}$/)) {
+        errorHolder.errors.push({'field': 'name', 'message': 'Le nom doit contenir entre 3 et 20 caractères'});
+    }
+
+    if(!req.body.email) {
+        errorHolder.errors.push({'field': 'email', 'message': 'L\'email est requis'});
+    }
+    // Regex validation
+    else if(!req.body.email.match(/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/)) {
+        errorHolder.errors.push({'field': 'email', 'message': 'L\'email est invalide'});
+    }
+
+    if(!req.body.password) {
+        errorHolder.errors.push({'field': 'password', 'message': 'Le mot de passe est requis'});
+    }
+    // Regex validation
+    else if(!req.body.password.match(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/)) {
+        errorHolder.errors.push({'field': 'password', 'message': 'Le mot de passe doit contenir au moins 8 caractères, 1 majuscule, 1 minuscule, 1 chiffre et 1 caractère spécial'});
+    }
+
+    if(errorHolder.errors.length > 0) {
+        res.status(400).send(errorHolder);
+        return;
+    }
+
     const userData = {
         name: req.body.name,
         email: req.body.email,
@@ -135,53 +192,85 @@ router.post('/register', (req, res) => {
         role: roles.Developer
     }
 
-    model.findOne({
+    userModel.findOne({
         email: userData.email
     }, (err, user) => {
         if (err) {
             res.send(err);
         } else if (user) {
-            res.json({
-                message: 'User already exists'
+            res.status(400).json({
+                success: false,
+                errors: [{
+                    field: 'email',
+                    message: 'L\'email est déjà utilisé'
+                }]
             });
         } else {
             userData.password = hash(userData.password);
-            const user = new model(userData);
+            const user = new userModel(userData);
 
             user.save((err, user) => {
                 if (err) {
-                    res.send(err);
+                    res.status(400).send({
+                        success: false,
+                        errors: [
+                            {
+                                'field': '_',
+                                'message': 'Something went wrong'
+                            }
+                        ]
+                    });
+                    return;
                 } else {
-                    res.json(user);
+                    res.status(200).send({
+                        success: true,
+                        user: user
+                    });
+                    return;
                 }
             });
         }
     });
 });
 
+
 router.post('/auth', (req, res) => {
-    model.findOne({
+    userModel.findOne({
         email: req.body.email
     }, (err, user) => {
         if (err) {
-            res.send(err);
+            res.status(400).send({
+                errors: [
+                    {
+                        'field': '_',
+                        'message': 'Something went wrong'
+                    }
+                ]
+            });
         } else {
             if (user) {
                 if (user.password === hash(req.body.password)) {
-                    res.json({
-                        success: true,
-                        token: generateAccessToken(user)
+                    res.status(200).send({
+                        token: generateAccessToken(user),
                     });
                 } else {
-                    res.json({
-                        success: false,
-                        message: 'Wrong password'
+                    res.status(400).send({
+                        errors: [
+                            {
+                                'field': '_',
+                                'message': 'L\'adresse courriel ou/et le mot de passe sont incorrects'
+                            }
+                        ]
                     });
                 }
             } else {
-                res.json({
-                    success: false,
-                    message: 'User not found'
+                res.status(400).send({
+                    errors: [
+                        {
+                            'field': '_',
+                            'message': 'L\'adresse courriel ou/et le mot de passe sont incorrects'
+                        }
+                    ]
                 });
             }
         }

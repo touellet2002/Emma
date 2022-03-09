@@ -1,13 +1,17 @@
-const router = require('express').Router();
-const mongoose = require('mongoose');
-const model = require('../models/CommandModel');
+const {
+    express,
+    commandModel,
+    jwtPlugin
+} = require('../imports');
+
+const router = express.Router();
 const {
     authenticateToken,
     authenticateDeveloper
-} = require('../plugins/JwtPlugin');
+} = jwtPlugin;
 
 router.get('/command', authenticateDeveloper, (req, res) => {
-    model.find({}, (err, commands) => {
+    commandModel.find({}, (err, commands) => {
         if (err) {
             res.send(err);
             } else {
@@ -17,7 +21,7 @@ router.get('/command', authenticateDeveloper, (req, res) => {
 });
 
 router.get('/command/:id', authenticateDeveloper, (req, res) => {
-    model.findById(req.params.id, (err, command) => {
+    commandModel.findById(req.params.id, (err, command) => {
         if (err) {
             res.send(err);
         } else {
@@ -28,7 +32,7 @@ router.get('/command/:id', authenticateDeveloper, (req, res) => {
 
 // get all commands for a specific type
 router.get('/command/type/:type', authenticateToken, (req, res) => {
-    model.find({
+    commandModel.find({
         type: req.params.type
     }, (err, commands) => {
         if (err) {
@@ -40,7 +44,7 @@ router.get('/command/type/:type', authenticateToken, (req, res) => {
 });
 
 router.post('/command', authenticateDeveloper, (req, res) => {
-    const command = new model(req.body);
+    const command = new commandModel(req.body);
 
     command.save((err, command) => {
         if (err) {
@@ -52,7 +56,7 @@ router.post('/command', authenticateDeveloper, (req, res) => {
 });
 
 router.put('/command', authenticateDeveloper, (req, res) => {
-    model.findByIdAndUpdate(req.body._id, req.body, (err, command) => {
+    commandModel.findByIdAndUpdate(req.body._id, req.body, (err, command) => {
         if (err) {
             res.send(err);
         } else {
@@ -62,7 +66,7 @@ router.put('/command', authenticateDeveloper, (req, res) => {
 });
 
 router.delete('/command', authenticateDeveloper, (req, res) => {
-    model.findByIdAndRemove(req.body._id, (err, command) => {
+    commandModel.findByIdAndRemove(req.body._id, (err, command) => {
         if (err) {
             res.send(err);
         } else {
