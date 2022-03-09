@@ -1,13 +1,18 @@
-const router = require('express').Router();
-const mongoose = require('mongoose');
-const model = require('../models/DeviceModel');
+const {
+    express,
+    mongoose,
+    deviceModel,
+    jwtPlugin
+} = require('../imports');
+
+const router = express.Router();
 const {
     authenticateToken,
     authenticateDeveloper
-} = require('../plugins/JwtPlugin');
+} = jwtPlugin;
 
 router.get('/device', authenticateDeveloper, (req, res) => {
-    model.aggregate([{
+    deviceModel.aggregate([{
         $lookup: {
             from: 'users',
             localField: '_owner',
@@ -31,7 +36,7 @@ router.get('/device', authenticateDeveloper, (req, res) => {
 });
 
 router.get('/device/user/:id', authenticateToken, (req, res) => {
-    model.aggregate([{
+    deviceModel.aggregate([{
         $match: {
             _owner: mongoose.Types.ObjectId(req.params.id)
         }
@@ -59,7 +64,7 @@ router.get('/device/user/:id', authenticateToken, (req, res) => {
 });
 
 router.get('/device/home/:id', authenticateToken, (req, res) => {
-    model.aggregate([{
+    deviceModel.aggregate([{
         $match: {
             _home: mongoose.Types.ObjectId(req.params.id)
         }
@@ -87,7 +92,7 @@ router.get('/device/home/:id', authenticateToken, (req, res) => {
 });
 
 router.post('/device', authenticateToken, (req, res) => {
-    const device = new model(req.body);
+    const device = new deviceModel(req.body);
 
     device.save((err, device) => {
         if (err) {
@@ -99,7 +104,7 @@ router.post('/device', authenticateToken, (req, res) => {
 });
 
 router.put('/device', authenticateToken, (req, res) => {
-    model.findByIdAndUpdate(req.body._id, req.body, (err, device) => {
+    deviceModel.findByIdAndUpdate(req.body._id, req.body, (err, device) => {
         if (err) {
             res.send(err);
         } else {
@@ -109,7 +114,7 @@ router.put('/device', authenticateToken, (req, res) => {
 });
 
 router.delete('/device/:id', authenticateToken, (req, res) => {
-    model.findByIdAndRemove(req.params.id, (err, device) => {
+    deviceModel.findByIdAndRemove(req.params.id, (err, device) => {
         if (err) {
             res.send(err);
         } else {

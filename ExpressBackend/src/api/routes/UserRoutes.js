@@ -1,18 +1,41 @@
-const router = require('express').Router();
-const mongoose = require('mongoose');
-const model = require('../models/UserModel');
+// Imports
 const {
-    encrypt,
+    express,
+    mongoose,
+    cryptoPlugin,
+    jwtPlugin,
+    userModel,
+    homeUserModel,
+    roles,
+    jwt
+} = require('../imports');
+
+const router = express.Router();
+const {
     hash
-} = require('../plugins/cryptoPlugin');
+} = cryptoPlugin;
 const {
     generateAccessToken
-} = require('../plugins/JwtPlugin');
-const roles = require('../constants/roles');
-const { response } = require('express');
+} = jwtPlugin;
 
+router.get('/me', jwtPlugin.authenticateToken,(req, res) => {
+    let token = req.headers['authorization'];
+
+    token = jwt.decode(token);
+
+    userModel.findById(token.user._id, (err, user) => {
+        if (err) {
+            res.send(err);
+        } else {
+            user.password = undefined;
+            res.json(user);
+        }
+    })
+});
+
+// Routes
 router.get('/', (req, res) => {
-    model.find({}, (err, users) => {
+    userModel.find({}, (err, users) => {
         if (err) {
             res.send(err);
         } else {
@@ -22,7 +45,7 @@ router.get('/', (req, res) => {
 });
 
 router.get('/:id', (req, res) => {
-    model.findById(req.params.id, (err, user) => {
+    userModel.findById(req.params.id, (err, user) => {
         if (err) {
             res.send(err);
         } else {
@@ -33,7 +56,7 @@ router.get('/:id', (req, res) => {
 })
 
 router.post('/', (req, res) => {
-    const user = new model(req.body);
+    const user = new userModel(req.body);
 
     user.save((err, user) => {
         if (err) {
@@ -45,7 +68,7 @@ router.post('/', (req, res) => {
 })
 
 router.put('/', (req, res) => {
-    model.findByIdAndUpdate(req.body._id, req.body, (err, user) => {
+    userModel.findByIdAndUpdate(req.body._id, req.body, (err, user) => {
         if (err) {
             res.send(err);
         } else {
@@ -56,14 +79,14 @@ router.put('/', (req, res) => {
 
 router.delete('/', (req, res) => {
     // Delete user
-    model.findByIdAndRemove(req.body._id, (err, user) => {
+    userModel.findByIdAndRemove(req.body._id, (err, user) => {
         if (err) {
             res.send(err);
         }
     });
 
     // Delete houses
-    const home = require('../models/homeModel');
+    const home = require('../userModels/homeuserModel');
     home.find({
         _owner: new mongoose.Types.ObjectId(req.body._id)
     }, (err, homes) => {
@@ -82,9 +105,7 @@ router.delete('/', (req, res) => {
         }
     });
 
-    // Delete HomeUsers
-    const homeUser = require('../models/HomeUserModel');
-    homeUser.find({
+    homeUserModel.find({
         _user: new mongoose.Types.ObjectId(req.body._id)
     }, (err, homeUsers) => {
         if (err) {
@@ -103,7 +124,7 @@ router.delete('/', (req, res) => {
     });
 
     // Delete devices
-    const device = require('../models/deviceModel');
+    const device = require('../userModels/deviceuserModel');
     device.find({
         _owner: new mongoose.Types.ObjectId(req.body._id)
     }, (err, devices) => {
@@ -171,7 +192,7 @@ router.post('/register', (req, res) => {
         role: roles.Developer
     }
 
-    model.findOne({
+    userModel.findOne({
         email: userData.email
     }, (err, user) => {
         if (err) {
@@ -186,7 +207,7 @@ router.post('/register', (req, res) => {
             });
         } else {
             userData.password = hash(userData.password);
-            const user = new model(userData);
+            const user = new userModel(userData);
 
             user.save((err, user) => {
                 if (err) {
@@ -212,8 +233,9 @@ router.post('/register', (req, res) => {
     });
 });
 
+
 router.post('/auth', (req, res) => {
-    model.findOne({
+    userModel.findOne({
         email: req.body.email
     }, (err, user) => {
         if (err) {

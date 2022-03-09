@@ -1,13 +1,18 @@
-const router = require('express').Router();
-const mongoose = require('mongoose');
-const model = require('../models/homeModel');
+const {
+    express,
+    mongoose,
+    homeModel,
+    jwtPlugin
+} = require('../imports');
+
+const router = express.Router();
 const {
     authenticateToken,
     authenticateDeveloper
-} = require('../plugins/JwtPlugin');
+} = jwtPlugin;
 
 router.get('/home', authenticateDeveloper, (req, res) => {
-    model.aggregate([{
+    homeModel.aggregate([{
         $lookup: {
             from: 'users',
             localField: '_owner',
@@ -25,7 +30,7 @@ router.get('/home', authenticateDeveloper, (req, res) => {
 
 router.get('/home/:id', authenticateToken, (req, res) => {
 
-    model.aggregate([{
+    homeModel.aggregate([{
         $match: {
             _id: new mongoose.Types.ObjectId(req.params.id)
         }
@@ -46,7 +51,7 @@ router.get('/home/:id', authenticateToken, (req, res) => {
 })
 
 router.post('/home', (req, res) => {
-    const home = new model(req.body);
+    const home = new homeModel(req.body);
 
     home.save((err, home) => {
         if (err) {
@@ -58,7 +63,7 @@ router.post('/home', (req, res) => {
 })
 
 router.put('/home', authenticateToken, (req, res) => {
-    model.findByIdAndUpdate(req.body._id, req.body, (err, home) => {
+    homeModel.findByIdAndUpdate(req.body._id, req.body, (err, home) => {
         if (err) {
             res.send(err);
         } else {
@@ -68,7 +73,7 @@ router.put('/home', authenticateToken, (req, res) => {
 });
 
 router.delete('/home', authenticateToken, (req, res) => {
-    model.findByIdAndRemove(req.body._id, (err, home) => {
+    homeModel.findByIdAndRemove(req.body._id, (err, home) => {
         if (err) {
             res.send(err);
         } else {

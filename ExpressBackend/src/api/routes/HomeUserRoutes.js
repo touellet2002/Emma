@@ -1,12 +1,17 @@
-const router = require('express').Router();
-const model = require('../models/HomeUserModel');
+const {
+    express,
+    homeUserModel,
+    jwtPlugin
+} = require('../imports');
+
+const router = express.Router();
 const {
     authenticateToken,
     authenticateDeveloper
-} = require('../plugins/JwtPlugin');
+} = jwtPlugin;
 
 router.get('/homeuser', authenticateDeveloper, (req, res) => {
-    model.aggregate([{
+    homeUserModel.aggregate([{
         $lookup: {
             from: 'users',
             localField: '_user',
@@ -30,7 +35,7 @@ router.get('/homeuser', authenticateDeveloper, (req, res) => {
 });
 
 router.get('/homeuser/:id', authenticateToken, (req, res) => {
-    model.findById(req.params.id, (err, home) => {
+    homeUserModel.findById(req.params.id, (err, home) => {
         if (err) {
             res.send(err);
         } else {
@@ -47,7 +52,7 @@ router.get('/homeuser/:id', authenticateToken, (req, res) => {
 })
 
 router.post('/homeuser', authenticateToken, (req, res) => {
-    const homeUser = new model(req.body);
+    const homeUser = new homeUserModel(req.body);
 
     homeUser.save((err, home) => {
         if (err) {
@@ -59,7 +64,7 @@ router.post('/homeuser', authenticateToken, (req, res) => {
 })
 
 router.put('/homeuser', authenticateToken, (req, res) => {
-    model.findByIdAndUpdate(req.body._id, req.body, (err, home) => {
+    homeUserModel.findByIdAndUpdate(req.body._id, req.body, (err, home) => {
         if (err) {
             res.send(err);
         } else {
@@ -69,7 +74,7 @@ router.put('/homeuser', authenticateToken, (req, res) => {
 });
 
 router.delete('/homeuser', authenticateToken, (req, res) => {
-    model.findByIdAndRemove(req.body._id, (err, home) => {
+    homeUserModel.findByIdAndRemove(req.body._id, (err, home) => {
         if (err) {
             res.send(err);
         } else {
