@@ -12,4 +12,13 @@ const mqttClient = {
     }
 };
 
+try {
+    mqttClient.publish('presence', 'Emma Backend server connected');
+    console.log("Connected to MQTT broker");
+}
+catch (err) {
+    console.log("MQTT error: " + err);
+}
+
+
 module.exports = mqttClient;

@@ -27,9 +27,9 @@ app.use(express.json());
 // Map routes
 app.use("/mqtt", mqttTestRoutes);
 app.use("/api/user", userRoutes);
-app.use("/api", homeRoutes);
-app.use("/api", homeUserRoutes);
-app.use("/api", deviceRoutes);
+app.use("/api/home", homeRoutes);
+app.use("/api/homeuser", homeUserRoutes);
+app.use("/api/device", deviceRoutes);	
 app.use("/api", commandRoutes);
 
 // Special routes

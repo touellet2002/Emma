@@ -2,8 +2,12 @@ const {
     express,
     mongoose,
     homeModel,
-    jwtPlugin
+    jwtPlugin,
+    validator, 
+    jwt,
+    homeUserModel
 } = require('../imports');
+const Validator = require('../plugins/ValidatorPlugin');
 
 const router = express.Router();
 const {
@@ -11,7 +15,7 @@ const {
     authenticateDeveloper
 } = jwtPlugin;
 
-router.get('/home', authenticateDeveloper, (req, res) => {
+router.get('/', authenticateDeveloper, (req, res) => {
     homeModel.aggregate([{
         $lookup: {
             from: 'users',
@@ -28,8 +32,151 @@ router.get('/home', authenticateDeveloper, (req, res) => {
     });
 });
 
-router.get('/home/:id', authenticateToken, (req, res) => {
+router.post('/', jwtPlugin.authenticateToken, (req, res) => {
+    homeNameValidator = new validator(req.body.name, 'name', "Nom du domicile")
+        .isAlphaNumericSpace()
+        .isRequired()
 
+    homeAddressValidator = new validator(req.body.address, 'address', "Adresse du domicile")
+        .isAlphaNumericSpace()
+        .isRequired()
+
+    errorHolder = {
+        success: false,
+        errors: []
+    }
+
+    if (homeNameValidator.errors.length > 0) {
+        homeNameValidator.errors.forEach(error => {
+            errorHolder.errors.push(error);
+        });
+    }
+
+    if (homeAddressValidator.errors.length > 0) {
+        homeAddressValidator.errors.forEach(error => {
+            errorHolder.errors.push(error);
+        });
+    }
+
+    if (errorHolder.errors.length > 0) {
+        res.status(400).json(errorHolder);
+    }
+    else {
+        const home = new homeModel();
+
+        _owner = jwt.decode(req.headers['authorization']).user._id;
+    
+        home.name = req.body.name;
+        home.address = req.body.address;
+        home._owner = _owner;
+    
+        home.save((err, home) => {
+            if (err) {
+                res.status(400).json([
+                    {
+                        field: "_",
+                        message: "Une erreur est survenue lors de la création du domicile"
+                    }
+                ]);
+            } else {
+                res.status(200).json(home);
+            }
+        });
+    }
+})
+
+router.put('/', authenticateToken, (req, res) => {
+    homeModel.findByIdAndUpdate(req.body._id, req.body, (err, home) => {
+        if (err) {
+            res.send(err);
+        } else {
+            res.json(home);
+        }
+    });
+});
+
+router.delete('/', authenticateToken, (req, res) => {
+    homeModel.findByIdAndRemove(req.body._id, (err, home) => {
+        if (err) {
+            res.send(err);
+        } else {
+            res.json(home);
+        }
+    });
+});
+
+router.get('/memberof', authenticateToken, (req, res) => {
+    let token = req.headers['authorization'];
+    token = jwt.decode(token);
+    homeUserModel.find({
+        _user: token.user._id
+    }, (err, homeUser) => {
+        if (err) {
+            res.status(400).send({
+                field: "_",
+                message: "Une erreur est survenue lors de la récupération des domiciles"
+            })
+        } else {
+            let homeIds = homeUser.map(homeUser => homeUser._home.toString()); // Convert every _home to string in order to use it in the next query
+            userHomes = []; // Array of all homes (including the ones that the user is only a member of)
+            homeModel.find({
+                _id: {  $in: homeIds } // Find all homes that the user is a member of
+            }, (err, memberHomes) => {
+                if (err) {
+                    res.status(400).send({
+                        field: "_",
+                        message: "Une erreur est survenue lors de la récupération des domiciles"
+                    });
+                } else {
+                    if(memberHomes) {
+                        userHomes = userHomes.concat(memberHomes); // Add all homes that the user is the owner of to the array
+                    }
+                }
+            });
+
+            homeModel.find({
+                _owner: token.user._id // Find all homes that the user is the owner of
+            }, (err, ownHomes) => {
+                if (err) {
+                    res.status(400).send({
+                        field: "_",
+                        message: "Une erreur est survenue lors de la récupération des domiciles"
+                    })
+                } else {
+                    if(ownHomes) {
+                        userHomes = userHomes.concat(ownHomes.map(ownHome => { 
+                            // if ownhome is not in userHomes, add it to the array
+                            if(!userHomes.find(userHome => userHome._id.toString() === ownHome._id.toString())) {
+                                return ownHome;
+                            }
+                        })); // Add all homes that the user is the owner of to the array
+                    }
+
+                    res.status(200).send(userHomes); // Send the array of homes
+                }
+            })
+        }
+    });
+});
+
+router.get('/owned', authenticateToken, (req, res) => {
+    let token = req.headers['authorization'];
+    token = jwt.decode(token);
+    homeModel.find({
+        _owner: token.user._id // Find all homes that the user is the owner of
+    }, (err, homes) => {
+        if (err) {
+            res.status(400).send({
+                field: "_",
+                message: "Une erreur est survenue lors de la récupération des domiciles"
+            })
+        } else {
+            res.status(200).send(homes); // Send the array of homes
+        }
+    });
+});
+
+router.get('/:id', authenticateToken, (req, res) => {
     homeModel.aggregate([{
         $match: {
             _id: new mongoose.Types.ObjectId(req.params.id)
@@ -49,37 +196,5 @@ router.get('/home/:id', authenticateToken, (req, res) => {
         }
     });
 })
-
-router.post('/home', (req, res) => {
-    const home = new homeModel(req.body);
-
-    home.save((err, home) => {
-        if (err) {
-            res.send(err);
-        } else {
-            res.json(home);
-        }
-    });
-})
-
-router.put('/home', authenticateToken, (req, res) => {
-    homeModel.findByIdAndUpdate(req.body._id, req.body, (err, home) => {
-        if (err) {
-            res.send(err);
-        } else {
-            res.json(home);
-        }
-    });
-});
-
-router.delete('/home', authenticateToken, (req, res) => {
-    homeModel.findByIdAndRemove(req.body._id, (err, home) => {
-        if (err) {
-            res.send(err);
-        } else {
-            res.json(home);
-        }
-    });
-});
 
 module.exports = router;

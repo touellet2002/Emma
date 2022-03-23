@@ -5,20 +5,23 @@ const schema = new mongoose.Schema({
         type: String,
         required: true
     },
-    id: {
+    deviceIdentifier: {
         type: String,
-        required: true
+        required: true,
+        unique: true
     },
     password: {
         type: String,
         required: true
     },
     type: {
-        type: Number,
-        required: true
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
+        ref: 'DeviceType'
     },
     _home: {
         type: mongoose.Schema.Types.ObjectId,
+        ref: 'Home'
     },
     _owner: {
         type: mongoose.Schema.Types.ObjectId,

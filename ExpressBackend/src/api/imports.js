@@ -10,5 +10,7 @@ module.exports = {
     jwtPlugin: require('./plugins/jwtPlugin'),
     deviceType: require('./constants/deviceTypes'),
     roles: require('./constants/roles'),
-    jwt: require('jsonwebtoken')
+    jwt: require('jsonwebtoken'),
+    validator: require('./plugins/validatorPlugin'),
+    mqttClient: require('../config/MqttConfig')
 };

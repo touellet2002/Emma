@@ -18,21 +18,6 @@ const {
     generateAccessToken
 } = jwtPlugin;
 
-router.get('/me', jwtPlugin.authenticateToken,(req, res) => {
-    let token = req.headers['authorization'];
-
-    token = jwt.decode(token);
-
-    userModel.findById(token.user._id, (err, user) => {
-        if (err) {
-            res.send(err);
-        } else {
-            user.password = undefined;
-            res.json(user);
-        }
-    })
-});
-
 // Routes
 router.get('/', (req, res) => {
     userModel.find({}, (err, users) => {
@@ -44,17 +29,7 @@ router.get('/', (req, res) => {
     });
 });
 
-router.get('/:id', (req, res) => {
-    userModel.findById(req.params.id, (err, user) => {
-        if (err) {
-            res.send(err);
-        } else {
-            user.password = undefined;
-            res.json(user);
-        }
-    })
-})
-
+// Create a new user
 router.post('/', (req, res) => {
     const user = new userModel(req.body);
 
@@ -65,8 +40,9 @@ router.post('/', (req, res) => {
             res.json(user);
         }
     });
-})
+});
 
+// Update a user
 router.put('/', (req, res) => {
     userModel.findByIdAndUpdate(req.body._id, req.body, (err, user) => {
         if (err) {
@@ -77,6 +53,7 @@ router.put('/', (req, res) => {
     });
 });
 
+// Delete a user
 router.delete('/', (req, res) => {
     // Delete user
     userModel.findByIdAndRemove(req.body._id, (err, user) => {
@@ -149,6 +126,43 @@ router.delete('/', (req, res) => {
     });
 });
 
+// Get a user with a specific token
+router.get('/me', jwtPlugin.authenticateToken,(req, res) => {
+    let token = req.headers['authorization'];
+    console.log("token: " + token);
+    token = jwt.decode(token);
+    console.log(token);
+    userModel.findById(token.user._id, (err, user) => {
+        if (err) {
+            res.send(err);
+        } else {
+            res.status(200).json({
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+            });
+        }
+    })
+});
+
+router.get("/auth", jwtPlugin.authenticateToken,(req, res) => {
+    res.sendStatus(200);
+});
+
+// Get a user with a specific id
+router.get('/:id', (req, res) => {
+    userModel.findById(req.params.id, (err, user) => {
+        if (err) {
+            res.send(err);
+        } else {
+            user.password = undefined;
+            res.json(user);
+        }
+    })
+})
+
+// Register a new user
 router.post('/register', (req, res) => {
     
     const errorHolder = {
@@ -189,7 +203,7 @@ router.post('/register', (req, res) => {
         name: req.body.name,
         email: req.body.email,
         password: req.body.password,
-        role: roles.Developer
+        role: roles.User
     }
 
     userModel.findOne({
@@ -233,7 +247,7 @@ router.post('/register', (req, res) => {
     });
 });
 
-
+// Login a user
 router.post('/auth', (req, res) => {
     userModel.findOne({
         email: req.body.email
@@ -250,11 +264,11 @@ router.post('/auth', (req, res) => {
         } else {
             if (user) {
                 if (user.password === hash(req.body.password)) {
-                    res.status(200).send({
-                        token: generateAccessToken(user),
+                    res.status(200).json({
+                        token: generateAccessToken(user)
                     });
                 } else {
-                    res.status(400).send({
+                    res.status(400).json({
                         errors: [
                             {
                                 'field': '_',
@@ -264,7 +278,7 @@ router.post('/auth', (req, res) => {
                     });
                 }
             } else {
-                res.status(400).send({
+                res.status(400).json({
                     errors: [
                         {
                             'field': '_',
@@ -276,5 +290,7 @@ router.post('/auth', (req, res) => {
         }
     });
 });
+
+
 
 module.exports = router;
