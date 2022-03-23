@@ -15,9 +15,29 @@ const mqttClient = {
 try {
     mqttClient.publish('presence', 'Emma Backend server connected');
     console.log("Connected to MQTT broker");
+    loadTopics();
 }
 catch (err) {
     console.log("MQTT error: " + err);
+}
+
+function loadTopics() {
+    const {
+        deviceModel
+    } = require('../api/imports');
+
+    deviceModel.find({}, (err, devices) => {
+        if (err) {
+            console.log("Error: " + err);
+        }
+        else {
+            devices.forEach(device => {
+                mqttClient.subscribe(device.deviceIdentifier, (topic, message) => {
+                    console.log(`Received command: ${message}`);
+                });
+            });
+        }
+    });
 }
 
 
