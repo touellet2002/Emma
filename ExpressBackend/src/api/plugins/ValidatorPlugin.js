@@ -121,6 +121,18 @@ class Validator {
         return this;
     }
 
+    isAlphaNumericSpaceUTF8() {
+        const alphaNumericSpaceUTF8Regex = /^[a-zA-Z0-9\u00C0-\u00FF ]+$/;
+        if (!alphaNumericSpaceUTF8Regex.test(this.value)) {
+            this.errors.push({
+                field: this.field,
+                message: `${this.fieldName} doit être alphanumérique, contenir des espaces et contenir des caractères accentués`
+            });
+        }
+
+        return this;
+    }
+
     isAlphaSpace() {
         const alphaSpaceRegex = /^[a-zA-Z ]+$/;
         if (!alphaSpaceRegex.test(this.value)) {

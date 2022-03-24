@@ -3,8 +3,12 @@ const {
     mongoose,
     deviceModel,
     jwtPlugin,
+    jwt,
     validator,
-    homeUserModel
+    homeUserModel,
+    deviceTypeModel,
+    homeModel,
+    mqttClient
 } = require('../imports');
 
 const router = express.Router();
@@ -75,7 +79,7 @@ router.get('/home/:id', authenticateToken, (req, res) => {
 });
 
 router.get('/types', authenticateToken, (req, res) => {
-    deviceModel.distinct('type', (err, types) => {
+    deviceTypeModel.find( {} , (err, types) => {
         if (err) {
             res.status(400).send({
                 errors: [{
@@ -90,29 +94,93 @@ router.get('/types', authenticateToken, (req, res) => {
 });
 
 router.post('/types', authenticateDeveloper, (req, res) => {
+
+    const errorHolder = {
+        success: false,
+        errors: []
+    };
+
     // Validate the device type
     const typeNameValidator = new validator(req.body.name, "name", "Nom du type d'objet connecté")
-        .isAlphaNumericSpace()
+        .isAlphaNumericSpaceUTF8()
         .isRequired();
 
-    req.body.actions.forEach(action => {
-        const actionNameValidator = new validator(action.name, "name", "Nom de l'action")
-            .isAlphaNumericSpace()
-            .isRequired();
+    if (typeNameValidator.errors.length > 0) {
+        typeNameValidator.errors.forEach(error => {
+            errorHolder.errors.push(error);
+        });
+    }
 
-        const actionDescriptionValidator = new validator(action.description, "description", "Description de l'action")
-            .isAlphaNumericSpace()
-            .isRequired();
-        
+    if(req.body.actions) {
+        req.body.actions.forEach(action => {
+            const actionNameValidator = new validator(action.name, "action_name", "Nom de l'action")
+                .isAlphaNumericSpaceUTF8()
+                .isRequired();
+
+            if (actionNameValidator.errors.length > 0) {
+                actionNameValidator.errors.forEach(error => {
+                    errorHolder.errors.push(error);
+                });
+            }
+
+            const actionMessageValidator = new validator(action.message, "message", "Message de l'action")
+                .isAlphaNumeric()
+                .isRequired();
+
+            if (actionMessageValidator.errors.length > 0) {
+                actionMessageValidator.errors.forEach(error => {
+                    errorHolder.errors.push(error);
+                });
+            }
+            
+            if(action.transfer != "Post" && action.transfer != "Get") {
+                errorHolder.errors.push({
+                    field: "transfer",
+                    message: "Le transfert doit être Envoie ou Réception"
+                });
+            }
+
+            if(action.hasNotification != true && action.hasNotification != false) {
+                errorHolder.errors.push({
+                    field: "hasNotification",
+                    message: "La notification doit être activée ou désactivée"
+                });
+            }
+        });
+    }
+
+    if(errorHolder.errors.length > 0) {
+        res.status(400).send(errorHolder);
+        return;
+    }
+
+    const newDeviceType = new deviceTypeModel({
+        name: req.body.name,
+        actions: req.body.actions
     });
 
+    console.log(req.body.actions);
+
+    newDeviceType.save((err, type) => {
+        if (err) {
+            res.status(400).send({
+                errors: [{
+                    field: "_",
+                    message: "Une erreur est survenue lors de la création du type d'objet connecté"
+                }]
+            });
+        } else {
+            res.status(200).json(type);
+        }
+    });
 });
 
-router.post('/mqtt/:id/:message', authenticateToken, (req, res) => {
+router.get('/mqtt/:deviceIdentifier/:message', authenticateToken, (req, res) => {
     // Verify if user has access to the device
     const decoded = jwt.decode(req.headers['authorization']);
-    console.log(decoded);
-    deviceModel.findById(req.params.id, (err, device) => {
+    deviceModel.findOne({
+        deviceIdentifier: req.params.deviceIdentifier
+    }, (err, device) => {
         if (err) {
             res.status(400).send({
                 errors: [{
@@ -121,8 +189,8 @@ router.post('/mqtt/:id/:message', authenticateToken, (req, res) => {
                 }]
             });
         } else {
-            homeUserModel.find({
-                _user: new mongoose.Types.ObjectId(decoded._user._id),
+            homeUserModel.findOne({
+                _user: new mongoose.Types.ObjectId(decoded.user._id),
                 _home: new mongoose.Types.ObjectId(device._home)
             }, (err, homeUser) => { 
                 if (err) {
@@ -133,18 +201,41 @@ router.post('/mqtt/:id/:message', authenticateToken, (req, res) => {
                         }]
                     });
                 } else {
-                    if (homeUser.length === 0) {
-                        res.status(400).send({
-                            errors: [{
-                                field: "_",
-                                message: "Vous n'avez pas accès à cet objet connecté"
-                            }]
+                    if (homeUser) {
+                        // Send the message to the device
+                        res.status(200).send({
+                            message: "Message envoyé"
                         });
                     } else {
-                        // Send the message to the device
-                        device.mqtt.publish(device.deviceIdentifier + '/CMD', req.params.message);
-                        res.status(200).send({
-                            message: "Commande envoyée"
+                        // Check if theuser owns the device home
+                        homeModel.findOne({
+                            _id: new mongoose.Types.ObjectId(device._home),
+                            _owner: new mongoose.Types.ObjectId(decoded.user._id)
+                        }, (err, home) => {
+                            if (err) {
+                                res.status(400).send({
+                                    errors: [{
+                                        field: "_",
+                                        message: "Une erreur est survenue lors de l'envoi de la commande"
+                                    }]
+                                });
+                            } else {
+                                if (home) {
+                                    // Send the message to the device
+                                    console.log(req.params.deviceIdentifier + "/CMD");
+                                    mqttClient.publish(req.params.deviceIdentifier + "/CMD", req.params.message);
+                                    res.status(200).send({
+                                        message: "Message envoyé"
+                                    });
+                                } else {
+                                    res.status(400).send({
+                                        errors: [{
+                                            field: "_",
+                                            message: "Vous n'avez pas accès à cet objet connecté"
+                                        }]
+                                    });
+                                }
+                            }
                         });
                     }
                 }

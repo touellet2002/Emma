@@ -16,6 +16,10 @@ const schema = new mongoose.Schema({
     password: {
         type: String,
         required: true
+    },
+    registrationToken: {
+        type: String,
+        required: false
     }
 }, {
     timestamps: true

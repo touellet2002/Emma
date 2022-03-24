@@ -6,7 +6,11 @@ const schema = new mongoose.Schema({
         type: String,
         required: true
     },
-    actions: [DeviceTypeAction]
+    actions: [
+        {
+            type: Object,
+        }
+    ]
 });
 
 

@@ -9,6 +9,7 @@ const {
     roles,
     jwt
 } = require('../imports');
+const { authenticateToken } = require('../plugins/jwtPlugin');
 
 const router = express.Router();
 const {
@@ -291,6 +292,24 @@ router.post('/auth', (req, res) => {
     });
 });
 
-
+router.post("/registrationtoken", authenticateToken, (req, res) => {
+    const token = req.headers['authorization'];
+    console.log("token: " + token);
+    token = jwt.decode(token);
+    console.log(token);
+    userModel.findById(token.user._id, (err, user) => {
+        if (err) {
+            res.send(err);
+        } else {
+            res.status(200).json({
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                registrationToken: user.registrationToken
+            });
+        }
+    })
+});
 
 module.exports = router;

@@ -14,7 +14,7 @@ const schema = new mongoose.Schema({
         type: String,
         required: true
     },
-    type: {
+    _deviceType: {
         type: mongoose.Schema.Types.ObjectId,
         required: true,
         ref: 'DeviceType'

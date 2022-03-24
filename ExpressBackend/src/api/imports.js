@@ -6,6 +6,7 @@ module.exports = {
     deviceModel: require('./models/deviceModel'),
     homeModel: require('./models/homeModel'),
     homeUserModel: require('./models/homeUserModel'),
+    deviceTypeModel: require('./models/deviceTypeModel'),
     cryptoPlugin: require('./plugins/cryptoPlugin'),
     jwtPlugin: require('./plugins/jwtPlugin'),
     deviceType: require('./constants/deviceTypes'),

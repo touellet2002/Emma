@@ -8,6 +8,14 @@ const schema = new mongoose.Schema({
     message: {
         type: String,
         required: true
+    },
+    transfer: {
+        type: String,
+        required: true
+    },
+    hasNotification: {
+        type: Boolean,
+        required: true
     }
 });
 
