@@ -5,6 +5,10 @@ const schema = new mongoose.Schema({
         type: String,
         required: true
     },
+    notificationKey: {
+        type: String,
+        required: true
+    },
     address: {
         type: String,
         required: true

@@ -14,6 +14,8 @@ const homeUserRoutes = require('./api/routes/HomeUserRoutes');
 const deviceRoutes = require('./api/routes/DeviceRoutes');
 const commandRoutes = require('./api/routes/CommandRoutes');
 
+const firebase = require('./config/firebase/FirebaseConfig');
+
 app.use(bodyParser.urlencoded({ extended: false }));
 // Log middleware
 app.use((req, res, next) => {
