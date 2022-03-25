@@ -8,8 +8,9 @@ const {
     homeUserModel,
     deviceTypeModel,
     homeModel,
-    mqttClient
 } = require('../imports');
+const  { send } = require('../../config/firebase/FirebaseConfig');
+const mqttClient = require('../../config/MqttConfig')
 
 const router = express.Router();
 const {
@@ -159,8 +160,6 @@ router.post('/types', authenticateDeveloper, (req, res) => {
         actions: req.body.actions
     });
 
-    console.log(req.body.actions);
-
     newDeviceType.save((err, type) => {
         if (err) {
             res.status(400).send({
@@ -175,71 +174,156 @@ router.post('/types', authenticateDeveloper, (req, res) => {
     });
 });
 
-router.get('/mqtt/:deviceIdentifier/:message', authenticateToken, (req, res) => {
+router.get('/mqtt/:deviceId/:actionId', authenticateToken, (req, res) => {
+    const decodedJwt = jwt.decode(req.headers['authorization']);
     // Verify if user has access to the device
-    const decoded = jwt.decode(req.headers['authorization']);
     deviceModel.findOne({
-        deviceIdentifier: req.params.deviceIdentifier
+        _id: req.params.deviceId,
     }, (err, device) => {
-        if (err) {
+        // If error, send 400
+        if(err) {
             res.status(400).send({
                 errors: [{
                     field: "_",
-                    message: "Une erreur est survenue lors de la récupération de l'objet connecté"
+                    message: "Une erreur est survenue lors de l'envoie de la commande"
                 }]
             });
-        } else {
-            homeUserModel.findOne({
-                _user: new mongoose.Types.ObjectId(decoded.user._id),
-                _home: new mongoose.Types.ObjectId(device._home)
-            }, (err, homeUser) => { 
-                if (err) {
-                    res.status(400).send({
-                        errors: [{
-                            field: "_",
-                            message: "Une erreur est survenue lors de l'envoi de la commande"
-                        }]
-                    });
-                } else {
-                    if (homeUser) {
-                        // Send the message to the device
-                        res.status(200).send({
-                            message: "Message envoyé"
+        }
+        else {
+            // Verify if there is an existing device
+            if(device) {
+
+                // If the user is the owner of the home, he has permission to send a command to the device
+                homeModel.findOne({
+                    _id: device._home,
+                    _owner: decodedJwt.user._id
+                }, (err, home) => {
+                    if(err) {
+                        res.status(400).send({
+                            errors: [{
+                                field: "_",
+                                message: "Une erreur est survenue lors de l'envoie de la commande"
+                            }]
                         });
-                    } else {
-                        // Check if theuser owns the device home
-                        homeModel.findOne({
-                            _id: new mongoose.Types.ObjectId(device._home),
-                            _owner: new mongoose.Types.ObjectId(decoded.user._id)
-                        }, (err, home) => {
-                            if (err) {
-                                res.status(400).send({
-                                    errors: [{
-                                        field: "_",
-                                        message: "Une erreur est survenue lors de l'envoi de la commande"
-                                    }]
-                                });
-                            } else {
-                                if (home) {
-                                    // Send the message to the device
-                                    console.log(req.params.deviceIdentifier + "/CMD");
-                                    mqttClient.publish(req.params.deviceIdentifier + "/CMD", req.params.message);
-                                    res.status(200).send({
-                                        message: "Message envoyé"
-                                    });
-                                } else {
+                    }
+                    else {
+                        if(home) {
+                            // Find the action with the device type
+                            deviceTypeModel.findOne({
+                                _id: device._deviceType,
+                            }, (err, type) => {
+                                if(err) {
                                     res.status(400).send({
                                         errors: [{
                                             field: "_",
-                                            message: "Vous n'avez pas accès à cet objet connecté"
+                                            message: "Une erreur est survenue lors de l'envoie de la commande"
                                         }]
                                     });
                                 }
-                            }
-                        });
+                                else {
+                                    if(type) {
+                                        const action = type.actions[req.params.actionId];
+                                        if(action && action.transfer === "Post") {
+                                            console.log(device.deviceIdentifier + "/CMD", action.message);
+                                            mqttClient.publish(device.deviceIdentifier + '/CMD', action.message);
+                                            if(action.hasNotification) {
+                                                send(device._home, "Action envoyée", "L'action \"" + action.name + "\" a été envoyée à l'objet connecté " + device.name);
+                                            }
+                                            res.sendStatus(200);
+                                        }   
+                                        else {
+                                            res.status(400).send({
+                                                errors: [{
+                                                    field: "_",
+                                                    message: "Action impossible"
+                                                }]
+                                            });
+                                        }
+                                    }
+                                    else {
+                                        res.status(400).send({
+                                            errors: [{
+                                                field: "_",
+                                                message: "Une erreur est survenue lors de l'envoie de la commande"
+                                            }]
+                                        });
+                                    }
+                                }
+                            });
+                        }
+                        else { 
+                            // If user is in the device home, the user has permission to send a command
+                            homeUserModel.findOne({
+                                _home: device._home,
+                                _user: decodedJwt.user._id,
+                            }, (err, homeUser) => {
+                                if (err) {
+                                    res.status(400).send({
+                                        errors: [{
+                                            field: "_",
+                                            message: "Une erreur est survenue lors de l'envoie de la commande"
+                                        }]
+                                    });
+                                }
+                                else {
+                                    if(homeUser) {
+                                        // Find the action with the device type
+                                        deviceTypeModel.findOne({
+                                            _id: device._deviceType,
+                                        }, (err, type) => {
+                                            if(err) {
+                                                res.status(400).send({
+                                                    errors: [{
+                                                        field: "_",
+                                                        message: "Une erreur est survenue lors de l'envoie de la commande"
+                                                    }]
+                                                });
+                                            }
+                                            else {
+                                                if(type) {
+                                                    const action = type.actions[req.params.actionId];
+                                                    if(action && action.transfer == "Post") {
+                                                        console.log(device.deviceIdentifier + '/CMD');
+                                                        mqttClient.publish(device.deviceIdentifier + '/CMD', action.message);
+                                                        if(action.hasNotification) {
+                                                            send(device._home, "Action envoyée", "L'action \"" + action.name + "\" a été envoyée à l'objet connecté " + device.name);
+                                                        }
+                                                        res.sendStatus(200);
+                                                    }   
+                                                    else {
+                                                        res.status(400).send({
+                                                            errors: [{
+                                                                field: "_",
+                                                                message: "Action impossible"
+                                                            }]
+                                                        });
+                                                    }
+                                                }
+                                                else {
+                                                    res.status(400).send({
+                                                        errors: [{
+                                                            field: "_",
+                                                            message: "Une erreur est survenue lors de l'envoie de la commande"
+                                                        }]
+                                                    });
+                                                }
+                                            }
+                                        });
+                                    }
+                                    else {
+                                        res.status(400).send({
+                                            errors: [{
+                                                field: "_",
+                                                message: "Vous n'avez pas accès à cet objet connecté"
+                                            }]
+                                        });
+                                    }
+                                }
+                            });
+                        }
                     }
-                }
-            });
+                });
+            }
         }
     });
 });

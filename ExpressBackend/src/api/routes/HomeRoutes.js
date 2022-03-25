@@ -2,12 +2,15 @@ const {
     express,
     mongoose,
     homeModel,
+    userModel,
     jwtPlugin,
     validator, 
     jwt,
     homeUserModel
 } = require('../imports');
+const { createNotificationKey } = require('../../config/firebase/FirebaseConfig');
 const Validator = require('../plugins/ValidatorPlugin');
+const { createConnection } = require('mongoose');
 
 const router = express.Router();
 const {
@@ -33,6 +36,9 @@ router.get('/', authenticateDeveloper, (req, res) => {
 });
 
 router.post('/', jwtPlugin.authenticateToken, (req, res) => {
+    // Get decoded token
+    const decoded= jwt.decode(req.headers['authorization']);
+
     homeNameValidator = new validator(req.body.name, 'name', "Nom du domicile")
         .isAlphaNumericSpace()
         .isRequired()
@@ -62,24 +68,92 @@ router.post('/', jwtPlugin.authenticateToken, (req, res) => {
         res.status(400).json(errorHolder);
     }
     else {
-        const home = new homeModel();
-
-        _owner = jwt.decode(req.headers['authorization']).user._id;
-    
-        home.name = req.body.name;
-        home.address = req.body.address;
-        home._owner = _owner;
-    
-        home.save((err, home) => {
+        req.body.name = req.body.name.trim();
+        // Check home name is unique for a specific owner
+        homeModel.findOne({
+            name: req.body.name,
+            _owner: decoded.user._id
+        }, (err, home) => {
             if (err) {
-                res.status(400).json([
-                    {
+                res.status(400).send({
+                    success: false,
+                    errors: [{
                         field: "_",
                         message: "Une erreur est survenue lors de la création du domicile"
-                    }
-                ]);
+                    }]
+                });
             } else {
-                res.status(200).json(home);
+                if (home) {
+                    res.status(400).send({
+                        success: false,
+                        errors: [{
+                            field: "name",
+                            message: "Ce nom de domicile est déjà utilisé"
+                        }]
+                    });
+                }
+            }
+        });
+
+        // Get home owner registration key
+        userModel.findOne({
+            _id: decoded.user._id
+        }, (err, user) => {
+            console.log(err)
+            if (err) {
+                res.status(400).send({
+                    success: false,
+                    errors: [{
+                        field: "_",
+                        message: "Une erreur est survenue lors de la création du domicile"
+                    }]
+                });
+            } else {
+                if(user) {
+                    // Create registration token and wait for response
+                    createNotificationKey(req.body.name + user._id, user.registrationToken)
+                    .then(response => {
+                        const home = new homeModel({
+                            name: req.body.name,
+                            address: req.body.address,
+                            _owner: decoded.user._id,
+                            notificationKey: response
+                        });
+                    
+                        home.save((err, home) => {
+                            if (err) {
+                                res.status(400).json({
+                                    success: false,
+                                    errors: [
+                                    {
+                                        field: "_",
+                                        message: "Une erreur est survenue lors de la création du domicile"
+                                    }
+                                ]
+                            });
+                            } else {
+                                res.sendStatus(200);
+                            }
+                        });
+                    }).catch(error => {
+                        res.status(400).json({
+                            success: false,
+                            errors: [{
+                                field: "_",
+                                message: "Une erreur est survenue lors de la création du domicile"
+                            }]
+                        });
+                    });
+                }
+                else {
+                    res.status(400).send({
+                        success: false,
+                        errors: [{
+                            field: "_",
+                            message: "Une erreur est survenue lors de la création du domicile"
+                        }]
+                    });
+                }
             }
         });
     }

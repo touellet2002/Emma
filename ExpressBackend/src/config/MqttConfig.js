@@ -1,4 +1,5 @@
 const mqtt = require('mqtt');	
+const { send } = require('../config/firebase/FirebaseConfig')
 
 const mqttServerUri = process.env.MQTT_SERVER;
 let client = mqtt.connect(`mqtt://${mqttServerUri}:1883`);
@@ -12,7 +13,7 @@ const mqttClient = {
     },
     subscribeToDefaultTopics() {
         const {
-            deviceModel
+            deviceModel, deviceTypeModel
         } = require('../api/imports');
 
         deviceModel.find({}, (err, devices) => {
@@ -101,10 +102,25 @@ client.on("message", (topic, message) => {
                             }
                             else {
                                 if(emma) {
-                                    console.log(emma._home.toString() === device._home.toString());
-                                    if(emma._home.toString() === device._home.toString()) {
-                                        mqttClient.publish(device.deviceIdentifier + "/CMD", messageJson.actionMessage);
-                                    }
+                                    // Find device action 
+                                    deviceTypeModel.findOne({
+                                        _id: device._deviceType
+                                    }, (err, deviceType) => {
+                                        if(deviceType) {
+                                            const action = deviceType.actions.find(action => action.message === messageJson.actionMessage);
+                                            console.log(action);
+                                            if(action) {
+                                                console.log(emma._home.toString() === device._home.toString());
+                                                if(emma._home.toString() === device._home.toString()) {
+                                                    mqttClient.publish(device.deviceIdentifier + "/CMD", messageJson.actionMessage);
+                                                }
+                                                if(action.hasNotification) {
+                                                    send(device._home, "Action effectuée", `${emma.name} a effectué l'action ${action.message} sur ${device.name}`);
+                                                }
+                                            }
+                                        }
+
+                                    });
                                 }
                             }
                         });

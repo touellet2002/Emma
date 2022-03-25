@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const roles = require('../constants/roles');
+const roles = require('../constants/Roles');
 
 const generateAccessToken = (text) => {
     // Make a token that never expires

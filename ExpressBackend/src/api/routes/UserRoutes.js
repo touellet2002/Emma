@@ -7,9 +7,11 @@ const {
     userModel,
     homeUserModel,
     roles,
-    jwt
+    jwt,
+    homeModel
 } = require('../imports');
-const { authenticateToken } = require('../plugins/jwtPlugin');
+const { authenticateToken } = require('../plugins/JwtPlugin');
+const { addRegistrationTokenToDeviceGroup } = require('../../config/firebase/FirebaseConfig');
 
 const router = express.Router();
 const {
@@ -137,18 +139,33 @@ router.get('/me', jwtPlugin.authenticateToken,(req, res) => {
         if (err) {
             res.send(err);
         } else {
-            res.status(200).json({
-                _id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-            });
+            if(user) {
+                res.status(200).json({
+                    _id: user._id,
+                    name: user.name,
+                    email: user.email,
+                    role: user.role,
+                });
+            }
         }
     })
 });
 
 router.get("/auth", jwtPlugin.authenticateToken,(req, res) => {
-    res.sendStatus(200);
+    // Find user with user._id in token
+    const decoded = jwt.decode(req.headers['authorization']);
+    userModel.findById(decoded.user._id, (err, user) => {
+        if (err) {
+            res.status(401).send(err);
+        } else {
+            if(user) {
+                res.sendStatus(200);
+            }  
+            else {
+                res.sendStatus(401);
+            }
+        }
+    });
 });
 
 // Get a user with a specific id
@@ -265,6 +282,9 @@ router.post('/auth', (req, res) => {
         } else {
             if (user) {
                 if (user.password === hash(req.body.password)) {
+
+                    console.log("FCM TOKEN: " + req.body.registrationToken);
+
                     res.status(200).json({
                         token: generateAccessToken(user)
                     });
@@ -293,20 +313,43 @@ router.post('/auth', (req, res) => {
 });
 
 router.post("/registrationtoken", authenticateToken, (req, res) => {
-    const token = req.headers['authorization'];
-    console.log("token: " + token);
+    let token = req.headers['authorization'];
     token = jwt.decode(token);
-    console.log(token);
     userModel.findById(token.user._id, (err, user) => {
         if (err) {
             res.send(err);
         } else {
-            res.status(200).json({
-                _id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                registrationToken: user.registrationToken
+            console.log(user)
+            // Update the user's registration token
+            let needToChangeOtherToken = false;
+            if(user.registrationToken) {
+                needToChangeOtherToken = true;
+            }
+            user.registrationToken = req.body.registrationToken;
+            user.save((err, user) => {
+                if (err) {
+                    res.send(err);
+                } else {
+                    if(needToChangeOtherToken) {
+                        // If member of homes
+                        homeUserModel.find({
+                            user: user._id
+                        }, (err, homeUsers) => {
+                            if(err) {
+                                res.send(err);
+                            }
+                            else {
+                                console.log(homeUsers);
+                                for(let i = 0; i < homeUsers.length; i++) {
+                                    addRegistrationTokenToDeviceGroup(homeUsers[i]._home, req.body.registrationToken);
+                                }
+
+                                res.sendStatus(200);
+                            }
+                        });
+                    }
+                    res.sendStatus(200);
+                }   
             });
         }
     })
