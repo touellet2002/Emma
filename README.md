@@ -1,5 +1,33 @@
 # Emma
 
+Python version: 3.9
+
+## L'application Emma
+
+Afin de pouvoir utiliser l'application Emma, il est recommandé de créer un environnement virtuel python. Pour ce faire, nous suggérons la procédure suivante:
+
+1- Installer python 3.9 sur votre ordinateur.
+2- Ouvrir une invite de commande et exécuter la commande suivante:
+ 
+ $pip install virtualenv
+ 
+3- Lorsque virtualenv est installé, il reste à créer l'environnement virtuel:
+ 
+ $python -m venv PATH/VERS/MON_ENVIRONNEMENT
+
+4- Maintenant, nous devons activer l'environnement que nous venons de créer, pour ce faire, nous devons naviguer dans le dosser MON_ENVIRONNEMENT que nous venons de créer à l'aide de la commande cd. Ensuite, nous devons naviguer dans le dossier Script que virtualenv à placer dans notre environnement. Une fois à l'intérieur de ce dossier, nous devons activer l'environne à l'aide de la commande suivante
+
+$activate
+
+Si les étapes précédentes ont été effectuéesavec succès, le nom de l'environnement devrait ce trouver en parenthèse du dossier où nous nous sitons dans l'invite de commande.
+
+5- Il ne reste qu'à installer les dépendances. Pour ce faire, nous devons effectuer la commande suivante:
+
+$pip install -r requirements.txt
+
+Le fichier requirements.txt est fournit dans ce répoire Git.
+
+
 ## Serveur backend
 Le serveur backend est développé en NodeJS. Nous avons utilisé Express pour la redirection des routes et MongoDB pour le stockage des données.
 
