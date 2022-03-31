@@ -4,6 +4,7 @@ Python version: 3.9
 
 ## L'application Emma
 
+### Création l'environnement
 Afin de pouvoir utiliser l'application Emma, il est recommandé de créer un environnement virtuel python. Pour ce faire, nous suggérons la procédure suivante:
 
 1- Installer python 3.9 sur votre ordinateur.
@@ -27,6 +28,15 @@ $pip install -r requirements.txt
 
 Le fichier requirements.txt est fournit dans ce répoire Git.
 
+Il n'y a qu'une dépendance qui ne peut être installer par pip, il s'agit de la libraire pyaudio. Celle-ci peut cependant elle peut être installer à l'aide de pipwin qui devrait déjà voir été installé à l'étape précédente. Ainsi, il ne reste qu'à effectuer la commande suivante pour installer cette librairie:
+
+$pipwin install pyaudio
+
+
+### Lancement de l'application
+L'environnement est désormais créer. Afin de lacer l'application, il suffit d'exécuter le script main.py se trouvant dans le répertoir Git.
+
+$python main.py
 
 ## Serveur backend
 Le serveur backend est développé en NodeJS. Nous avons utilisé Express pour la redirection des routes et MongoDB pour le stockage des données.
