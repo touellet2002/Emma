@@ -313,6 +313,7 @@ router.post('/auth', (req, res) => {
 });
 
 router.post("/registrationtoken", authenticateToken, (req, res) => {
+    console.log("FCM TOKEN: " + req.body.registrationToken);
     let token = req.headers['authorization'];
     token = jwt.decode(token);
     userModel.findById(token.user._id, (err, user) => {
@@ -332,23 +333,41 @@ router.post("/registrationtoken", authenticateToken, (req, res) => {
                 } else {
                     if(needToChangeOtherToken) {
                         // If member of homes
-                        homeUserModel.find({
-                            user: user._id
-                        }, (err, homeUsers) => {
+                        homeUserModel.find({user: token.user._id}).populate("_home").exec((err, homeUsers) => {
                             if(err) {
                                 res.send(err);
                             }
                             else {
                                 console.log(homeUsers);
-                                for(let i = 0; i < homeUsers.length; i++) {
-                                    addRegistrationTokenToDeviceGroup(homeUsers[i]._home, req.body.registrationToken);
+                                if(homeUsers.length > 0) {
+                                    for(let i = 0; i < homeUsers.length; i++) {
+                                        addRegistrationTokenToDeviceGroup(homeUsers[i]._home.name + homeUsers[i]._home._owner, homeUsers[i]._home, user.registrationToken);
+                                    }
                                 }
 
-                                res.sendStatus(200);
+                                homeModel.find({
+                                    _owner: token.user._id
+                                }, (err, homes) => {
+                                    if(err) {
+                                        res.sendStatus(400);
+                                    }
+                                    else {
+                                        console.log(homes)
+                                        if(homes.length > 0) {
+                                            for(let i = 0; i < homes.length; i++) {
+                                                addRegistrationTokenToDeviceGroup(homes[i]._id, homes[i].name + homes[i]._owner, user.registrationToken);
+                                            }
+                                        }
+
+                                        res.sendStatus(200);
+                                    }
+                                });
                             }
                         });
                     }
-                    res.sendStatus(200);
+                    else {
+                        res.sendStatus(200);
+                    }
                 }   
             });
         }

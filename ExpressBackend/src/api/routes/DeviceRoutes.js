@@ -4,13 +4,15 @@ const {
     deviceModel,
     jwtPlugin,
     jwt,
+    cryptoPlugin,
     validator,
     homeUserModel,
     deviceTypeModel,
     homeModel,
 } = require('../imports');
 const  { send } = require('../../config/firebase/FirebaseConfig');
-const mqttClient = require('../../config/MqttConfig')
+const mqttClient = require('../../config/MqttConfig');
+const { Developer } = require('../constants/Roles');
 
 const router = express.Router();
 const {
@@ -47,39 +49,22 @@ router.get('/user/:id', authenticateToken, (req, res) => {
 });
 
 router.get('/home/:id', authenticateToken, (req, res) => {
-    deviceModel.aggregate([{
-        $match: {
-            _home: mongoose.Types.ObjectId(req.params.id)
-        }
-    }, {
-        $lookup: {
-            from: 'users',
-            localField: '_owner',
-            foreignField: '_id',
-            as: '_owner'
-        }
-    },{
-        $lookup: {
-            from: 'homes',
-            localField: '_home',
-            foreignField: '_id',
-            as: '_home'
-        }
-    }], (err, devices) => {
+    deviceModel.find({
+        _home: mongoose.Types.ObjectId(req.params.id)
+    })
+    .populate('_owner')
+    .populate('_home')
+    .populate('_deviceType')
+    .exec((err, devices) => {
         if (err) {
-            res.status(400).send({
-                errors: [{
-                    field: "_",
-                    message: "Une erreur est survenue lors de la récupération des objets connectés"
-                }]
-            });
+            res.send(err);
         } else {
-            res.status(200).json(devices);
+            res.send(devices);
         }
     });
 });
 
-router.get('/types', authenticateToken, (req, res) => {
+router.get('/types', authenticateDeveloper, (req, res) => {
     deviceTypeModel.find( {} , (err, types) => {
         if (err) {
             res.status(400).send({
@@ -94,7 +79,121 @@ router.get('/types', authenticateToken, (req, res) => {
     });
 });
 
-router.post('/types', authenticateDeveloper, (req, res) => {
+router.post('/type', authenticateDeveloper, (req, res) => {
+    const errorHolder = {
+        success: false,
+        errors: []
+    };
+
+    // Validate the device type
+    const typeNameValidator = new validator(req.body.name, "name", "Nom du type d'objet connecté")
+        .isAlphaNumericSpaceUTF8()
+        .isRequired();
+
+    const iconValidator = new validator(req.body.icon, "icon", "Icône du type d'objet connecté")
+        .isRequired();
+
+    // Check if the name is unique
+    deviceTypeModel.findOne({
+        name: req.body.name
+    }, (err, type) => {
+        if (err) {
+            res.status(400).send({
+                success: false,
+                errors : [{
+                    field: "_",
+                    message: "Une erreur est survenue lors de l'ajout du type d'objet connecté"
+                }]
+            });
+        } else if (type) {
+            res.status(400).send({
+                success: false,
+                errors : [{
+                    field: "name",
+                    message: "Ce nom est déjà utilisé"
+                }]
+            });
+        }
+        else {
+            if (typeNameValidator.errors.length > 0) {
+                typeNameValidator.errors.forEach(error => {
+                    errorHolder.errors.push(error);
+                });
+            }
+
+            if (iconValidator.errors.length > 0) {
+                iconValidator.errors.forEach(error => {
+                    errorHolder.errors.push(error);
+                });
+            }
+        
+            const jsonActions = JSON.parse(req.body.actions);
+            if(jsonActions.length > 0) {
+                jsonActions.forEach(action => {
+                    const actionNameValidator = new validator(action.name, "action_name", "Nom de l'action")
+                        .isAlphaNumericSpaceUTF8()
+                        .isRequired();
+        
+                    if (actionNameValidator.errors.length > 0) {
+                        actionNameValidator.errors.forEach(error => {
+                            errorHolder.errors.push(error);
+                        });
+                    }
+        
+                    const actionMessageValidator = new validator(action.message, "message", "Message de l'action")
+                        .isAlphaNumeric()
+                        .isRequired();
+        
+                    if (actionMessageValidator.errors.length > 0) {
+                        actionMessageValidator.errors.forEach(error => {
+                            errorHolder.errors.push(error);
+                        });
+                    }
+                    
+                    if(action.transfer != "Post" && action.transfer != "Get") {
+                        errorHolder.errors.push({
+                            field: "transfer",
+                            message: "Le transfert doit être Envoie ou Réception"
+                        });
+                    }
+        
+                    if(action.hasNotification != true && action.hasNotification != false) {
+                        errorHolder.errors.push({
+                            field: "hasNotification",
+                            message: "La notification doit être activée ou désactivée"
+                        });
+                    }
+                });
+            }
+        
+            if(errorHolder.errors.length > 0) {
+                res.status(400).send(errorHolder);
+                return;
+            }
+        
+            const newDeviceType = new deviceTypeModel({
+                name: req.body.name,
+                image: req.body.icon,
+                actions: jsonActions
+            });
+        
+            newDeviceType.save((err, type) => {
+                if (err) {
+                    res.status(400).send({
+                        errors: [{
+                            field: "_",
+                            message: "Une erreur est survenue lors de la création du type d'objet connecté"
+                        }]
+                    });
+                } else {
+                    res.sendStatus(200);
+                }
+            });
+        }
+    });
+});
+
+router.put('/type/:id', authenticateDeveloper, (req, res) => {
 
     const errorHolder = {
         success: false,
@@ -106,70 +205,146 @@ router.post('/types', authenticateDeveloper, (req, res) => {
         .isAlphaNumericSpaceUTF8()
         .isRequired();
 
-    if (typeNameValidator.errors.length > 0) {
-        typeNameValidator.errors.forEach(error => {
-            errorHolder.errors.push(error);
+    const iconValidator = new validator(req.body.icon, "icon", "Icône du type d'objet connecté")
+        .isRequired();
+
+    // Check if the name is unique
+    deviceTypeModel.findOne({
+        name: req.body.name
+    }, (err, type) => {
+        if (err) {
+            res.status(400).send({
+                success: false,
+                errors : [{
+                    field: "_",
+                    message: "Une erreur est survenue lors de l'ajout du type d'objet connecté"
+                }]
+            });
+        } else if (type) {
+            if(type._id != req.params.id) {
+                res.status(400).send({
+                    success: false,
+                    errors : [{
+                        field: "name",
+                        message: "Ce nom est déjà utilisé"
+                    }]
+                });
+            }
+        }
+
+        if (typeNameValidator.errors.length > 0) {
+            typeNameValidator.errors.forEach(error => {
+                errorHolder.errors.push(error);
+            });
+        }
+
+        if (iconValidator.errors.length > 0) {
+            iconValidator.errors.forEach(error => {
+                errorHolder.errors.push(error);
+            });
+        }
+    
+        const jsonActions = JSON.parse(req.body.actions);
+        if(jsonActions.length > 0) {
+            jsonActions.forEach(action => {
+                const actionNameValidator = new validator(action.name, "action_name", "Nom de l'action")
+                    .isAlphaNumericSpaceUTF8()
+                    .isRequired();
+    
+                if (actionNameValidator.errors.length > 0) {
+                    actionNameValidator.errors.forEach(error => {
+                        errorHolder.errors.push(error);
+                    });
+                }
+    
+                const actionMessageValidator = new validator(action.message, "message", "Message de l'action")
+                    .isAlphaNumeric()
+                    .isRequired();
+    
+                if (actionMessageValidator.errors.length > 0) {
+                    actionMessageValidator.errors.forEach(error => {
+                        errorHolder.errors.push(error);
+                    });
+                }
+                
+                if(action.transfer != "Post" && action.transfer != "Get") {
+                    errorHolder.errors.push({
+                        field: "transfer",
+                        message: "Le transfert doit être Envoie ou Réception"
+                    });
+                }
+    
+                if(action.hasNotification != true && action.hasNotification != false) {
+                    errorHolder.errors.push({
+                        field: "hasNotification",
+                        message: "La notification doit être activée ou désactivée"
+                    });
+                }
+            });
+        }
+    
+        if(errorHolder.errors.length > 0) {
+            res.status(400).send(errorHolder);
+            return;
+        }
+    
+        const newDeviceType = new deviceTypeModel({
+            name: req.body.name,
+            image: req.body.icon,
+            actions: jsonActions
         });
-    }
 
-    if(req.body.actions) {
-        req.body.actions.forEach(action => {
-            const actionNameValidator = new validator(action.name, "action_name", "Nom de l'action")
-                .isAlphaNumericSpaceUTF8()
-                .isRequired();
-
-            if (actionNameValidator.errors.length > 0) {
-                actionNameValidator.errors.forEach(error => {
-                    errorHolder.errors.push(error);
+        deviceTypeModel.findByIdAndUpdate(req.params.id, { 
+            name: req.body.name,
+            actions: jsonActions
+        }, (err, type) => {
+            if (err) {
+                res.status(400).send({
+                    errors: [{  
+                        field: "_",
+                        message: "Une erreur est survenue lors de la modification du type d'objet connecté"
+                    }]
                 });
-            }
-
-            const actionMessageValidator = new validator(action.message, "message", "Message de l'action")
-                .isAlphaNumeric()
-                .isRequired();
-
-            if (actionMessageValidator.errors.length > 0) {
-                actionMessageValidator.errors.forEach(error => {
-                    errorHolder.errors.push(error);
-                });
-            }
-            
-            if(action.transfer != "Post" && action.transfer != "Get") {
-                errorHolder.errors.push({
-                    field: "transfer",
-                    message: "Le transfert doit être Envoie ou Réception"
-                });
-            }
-
-            if(action.hasNotification != true && action.hasNotification != false) {
-                errorHolder.errors.push({
-                    field: "hasNotification",
-                    message: "La notification doit être activée ou désactivée"
-                });
+            } else {
+                res.status(200).json(type);
             }
         });
-    }
-
-    if(errorHolder.errors.length > 0) {
-        res.status(400).send(errorHolder);
-        return;
-    }
-
-    const newDeviceType = new deviceTypeModel({
-        name: req.body.name,
-        actions: req.body.actions
     });
+});
 
-    newDeviceType.save((err, type) => {
+router.delete("/type/:id", authenticateDeveloper, (req, res) => {
+
+    // Check if devices use this type
+    deviceModel.findOne({
+        _deviceType: req.params.id
+    }, (err, device) => {
         if (err) {
             res.status(400).send({
                 errors: [{
                     field: "_",
-                    message: "Une erreur est survenue lors de la création du type d'objet connecté"
+                    message: "Une erreur est survenue lors de la suppression du type d'objet connecté"
+                }]
+            });
+        } else if (device) {
+            res.status(400).send({
+                errors: [{
+                    field: "_",
+                    message: "Ce type d'objet connecté est utilisé par un objet connecté"
                 }]
             });
         } else {
-            res.status(200).json(type);
+            deviceTypeModel.findByIdAndRemove(req.params.id, (err, type) => {
+                if (err) {
+                    res.status(400).send({
+                        errors: [{
+                            field: "_",
+                            message: "Une erreur est survenue lors de la suppression du type d'objet connecté"
+                        }]
+                    });
+                } else {
+                    res.sendStatus(200);
+                }
+            });
         }
     });
 });
@@ -224,7 +399,6 @@ router.get('/mqtt/:deviceId/:actionId', authenticateToken, (req, res) => {
                                     if(type) {
                                         const action = type.actions[req.params.actionId];
                                         if(action && action.transfer === "Post") {
-                                            console.log(device.deviceIdentifier + "/CMD", action.message);
                                             mqttClient.publish(device.deviceIdentifier + '/CMD', action.message);
                                             if(action.hasNotification) {
                                                 send(device._home, "Action envoyée", "L'action \"" + action.name + "\" a été envoyée à l'objet connecté " + device.name);
@@ -283,7 +457,6 @@ router.get('/mqtt/:deviceId/:actionId', authenticateToken, (req, res) => {
                                                 if(type) {
                                                     const action = type.actions[req.params.actionId];
                                                     if(action && action.transfer == "Post") {
-                                                        console.log(device.deviceIdentifier + '/CMD');
                                                         mqttClient.publish(device.deviceIdentifier + '/CMD', action.message);
                                                         if(action.hasNotification) {
                                                             send(device._home, "Action envoyée", "L'action \"" + action.name + "\" a été envoyée à l'objet connecté " + device.name);
@@ -329,21 +502,17 @@ router.get('/mqtt/:deviceId/:actionId', authenticateToken, (req, res) => {
 });
 
 router.get('/', authenticateDeveloper, (req, res) => {
-    deviceModel.aggregate([{
-        $lookup: {
-            from: 'users',
-            localField: '_owner',
-            foreignField: '_id',
-            as: '_owner'
-        }
-    },{
-        $lookup: {
-            from: 'homes',
-            localField: '_home',
-            foreignField: '_id',
-            as: '_home'
-        }
-    }], (err, devices) => {
+    deviceModel.find({})
+    .populate({
+        path: '_owner'
+    })
+    .populate({
+        path: '_home'
+    })
+    .populate({
+        path: '_deviceType'
+    })
+    .exec((err, devices) => {
         if (err) {
             res.send(err);
         } else {
@@ -353,28 +522,180 @@ router.get('/', authenticateDeveloper, (req, res) => {
 });
 
 router.post('/', authenticateToken, (req, res) => {
-    const device = new deviceModel(req.body);
+    console.log(req.body)
+    // Validate the device model deviceIdentifier and the password
+    const deviceIdentifierValidator = new validator(req.body.deviceIdentifier, "deviceIdentifier", "Identifiant de l'objet connecté")
+        .isAlphaNumericSlashes()
+        .isRequired();
 
-    device.save((err, device) => {
+    const passwordValidator = new validator(req.body.password, "password", "Mot de passe de l'objet connecté")
+        .isAlphaNumeric()
+        .isRequired();
+
+    let errorHolder = {
+        success: false,
+        errors: []
+    }
+
+    if (deviceIdentifierValidator.errors.length > 0) {
+        deviceIdentifierValidator.errors.forEach(error => {
+            errorHolder.errors.push(error);
+        });
+    }
+
+    if (passwordValidator.errors.length > 0) {
+        passwordValidator.errors.forEach(error => {
+            errorHolder.errors.push(error);
+        });
+    }
+
+    if (errorHolder.errors.length > 0) {
+        res.status(400).send(errorHolder);
+    }
+    else {
+        const device = new deviceModel({
+            deviceIdentifier: req.body.deviceIdentifier,
+            password: cryptoPlugin.hash(req.body.password),
+        });
+    
+        // Set device type using the deviceTypeName
+        deviceTypeModel.findOne({
+            name: req.body.deviceTypeName
+        }, (err, type) => {
+            if(err) {
+                res.status(400).send({
+                    errors: [{
+                        field: "_",
+                        message: "Une erreur est survenue lors de la création de l'objet connecté"
+                    }]
+                });
+            }
+            else {
+                if(type) {
+                    device._deviceType = type._id;
+                    device.save((err, device) => {
+                        if (err) {
+                            res.status(400).send({
+                                errors: [{
+                                    field: "_",
+                                    message: "Une erreur est survenue lors de la création de l'objet connecté"
+                                }]
+                            });
+                        } else {
+                            res.send(device);
+                        }
+                    });
+                }
+                else {
+                    res.status(400).send({
+                        errors: [{
+                            field: "_",
+                            message: "Le type d'objet connecté n'existe pas"
+                        }]
+                    });
+                }
+            }
+        });
+    }
+});
+
+router.get('/:id', authenticateDeveloper, (req, res) => {
+    deviceModel.findById(req.params.id)
+    .populate({
+        path: '_owner'
+    })
+    .populate({
+        path: '_home'
+    })
+    .populate({
+        path: '_deviceType'
+    })
+    .exec((err, device) => {
         if (err) {
             res.send(err);
         } else {
-            res.json(device);
+            res.send(device);
         }
     });
 });
 
-router.put('/', authenticateToken, (req, res) => {
-    deviceModel.findByIdAndUpdate(req.body._id, req.body, (err, device) => {
-        if (err) {
-            res.send(err);
-        } else {
-            res.json(device);
+router.put('/:id', authenticateDeveloper, (req, res) => {
+    //Validate the device model deviceIdentifier and the password
+    const deviceIdentifierValidator = new validator(req.body.deviceIdentifier, "deviceIdentifier", "Identifiant de l'objet connecté")
+        .isAlphaNumericSlashes();
+
+    let passwordValidator = null;
+    if(req.body.password) {
+        passwordValidator = new validator(req.body.password, "password", "Mot de passe de l'objet connecté")
+            .isAlphaNumeric();
+    }
+
+    let errorHolder = {
+        success: false,
+        errors: []
+    }
+
+    if (deviceIdentifierValidator.errors.length > 0) {
+        deviceIdentifierValidator.errors.forEach(error => {
+            errorHolder.errors.push(error);
+        });
+    }
+
+    if (passwordValidator) {
+        if(passwordValidator.errors.length > 0) {
+            passwordValidator.errors.forEach(error => {
+                errorHolder.errors.push(error);
+            });
         }
-    });
+    }
+
+    if (errorHolder.errors.length > 0) {
+        res.status(400).send(errorHolder);
+    }
+    else {
+        deviceModel.findById(req.params.id, (err, device) => {
+            if (err) {
+                res.status(400).send({
+                    errors: [{
+                        field: "_",
+                        message: "Une erreur est survenue lors de la récupération de l'objet connecté"
+                    }]
+                });
+            }
+            else {
+                if(device) {
+                    // Update device
+                    device.deviceIdentifier = req.body.deviceIdentifier;
+                    if(req.body.password) {
+                        device.password = cryptoPlugin.hash(req.body.password);
+                    }
+                    device.save((err, device) => {
+                        if (err) {
+                            res.status(400).send({
+                                errors: [{
+                                    field: "_",
+                                    message: "Une erreur est survenue lors de la modification de l'objet connecté"
+                                }]
+                            });
+                        } else {
+                            res.send(device);
+                        }
+                    });
+                }
+                else {
+                    res.status(400).send({
+                        errors: [{
+                            field: "_",
+                            message: "L'objet connecté n'existe pas"
+                        }]
+                    });
+                }
+            }
+        });
+    }
 });
 
-router.delete('/:id', authenticateToken, (req, res) => {
+router.delete('/:id', authenticateDeveloper, (req, res) => {
     deviceModel.findByIdAndRemove(req.params.id, (err, device) => {
         if (err) {
             res.send(err);

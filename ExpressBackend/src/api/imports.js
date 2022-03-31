@@ -14,4 +14,5 @@ module.exports = {
     jwt: require('jsonwebtoken'),
     validator: require('./plugins/ValidatorPlugin'),
     mqttClient: require('../config/MqttConfig'),
+    firebase: require('../config/firebase/FirebaseConfig'),
 };

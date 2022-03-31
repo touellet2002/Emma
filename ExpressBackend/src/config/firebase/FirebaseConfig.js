@@ -2,6 +2,7 @@ require("dotenv").config();
 const fetch = require("node-fetch");
 
 const admin = require("firebase-admin");
+const { homeModel } = require("../../api/imports");
 admin.initializeApp({
   credential: admin.credential.cert(require("./credentials.json")),
 });
@@ -32,6 +33,33 @@ module.exports = {
       }
     });
   },
+
+  sendIndividual: (userId, title, body) => {
+    const model = require("../../api/models/UserModel");
+    model.findById(userId, (err, user) => {
+      if (err) {
+        console.log(err);
+        return;
+      }
+      else {
+        admin
+        .messaging()
+        .sendToDevice(user.registrationToken, {
+          notification: {
+            title,
+            body,
+          }
+        })
+        .then(response => {
+            console.log("Successfully sent message:", response);
+          })
+        .catch(error => {
+            console.log("Error sending message:", error);
+        });
+      }
+    });
+  },
+
   // Create a new notification key
   // The notification key name is the same as the home id
   createNotificationKey: async (homeId, ownerRegistrationId) => {
@@ -67,36 +95,48 @@ module.exports = {
       });
     });
   },
-  addRegistrationTokenToDeviceGroup(homeId, notification_key) {
+  addRegistrationTokenToDeviceGroup(homeId, notificationKeyName, registrationId) {
     const request = require("request");
     const url = "https://fcm.googleapis.com/fcm/notification";
 
-    const options = {
-      method: "POST",
-      url: url,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `key=${process.env.FIREBASE_SERVER_KEY}`,
-        project_id: process.env.FIREBASE_SENDER_ID,
-      },
-      body: {
-        operation: "add",
-        notification_key_name: homeId.toString(),
-        notification_key: notification_key,
-      },
-      json: true,
-    };
+    homeModel.findById(homeId, (err, home) => {
+      if (err) {
+        console.log(err);
+        return;
+      }
+      else {
 
-    // Send the request
-    return new Promise((resolve, reject) => {
-      request(options, (error, response, body) => {
-        if (error) {
-          reject(error);
-        } else {
-          console.log(body);
-          resolve(body.notification_key);
-        }
-      });
+        console.log("Notification key: " + home.notificationKey);
+        console.log("Registration id: " + registrationId);
+        const options = {
+          method: "POST",
+          url: url,
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `key=${process.env.FIREBASE_SERVER_KEY}`,
+            project_id: process.env.FIREBASE_SENDER_ID,
+          },
+          body: {
+            operation: "add",
+            notification_key_name: notificationKeyName,
+            notification_key: home.notificationKey,
+            registration_ids: [registrationId],
+          },
+          json: true,
+        };
+
+        // Send the request
+        return new Promise((resolve, reject) => {
+          request(options, (error, response, body) => {
+            if (error) {
+              reject(error);
+            } else {
+              console.log(body);
+              resolve(body.notification_key);
+            }
+          });
+        });
+      }
     });
   }
 };

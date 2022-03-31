@@ -1,11 +1,11 @@
 const jwt = require('jsonwebtoken');
+const userModel = require('../models/UserModel');
 const roles = require('../constants/Roles');
 
 const generateAccessToken = (text) => {
     // Make a token that never expires
     return jwt.sign({ user: { 
-            _id: text._id,
-            role: text.role
+            _id: text._id
         }
     }, process.env.TOKEN_SECRET, { });
 }  
@@ -28,9 +28,10 @@ const authenticateDeveloper = (req, res, next) => {
 
     jwt.verify(token, process.env.TOKEN_SECRET, (err, info) => {
         if (err) return res.sendStatus(403)
-
-        if (info.user.role !== roles.Developer) return res.sendStatus(403)
-        next()
+        userModel.findById(info.user._id, (err, user) => {
+            if (user.role !== roles.Developer) return res.sendStatus(403)
+            next()
+        })
     });
 }
 

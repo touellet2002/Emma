@@ -8,6 +8,7 @@ class Validator {
     }
 
     isRequired() {
+        console.log(this.value);
         if (this.value === undefined || this.value === null || this.value.trim() === '') {
             this.errors.push({
                 field: this.field,
@@ -139,6 +140,18 @@ class Validator {
             this.errors.push({
                 field: this.field,
                 message: `${this.fieldName} doit être alphabétique et contenir des espaces`
+            });
+        }
+
+        return this;
+    }
+
+    isAlphaNumericSlashes() {
+        const alphaNumericSpaceRegex = /^[a-zA-Z0-9\/]+$/;
+        if (!alphaNumericSpaceRegex.test(this.value)) {
+            this.errors.push({
+                field: this.field,
+                message: `${this.fieldName} doit être alphanumérique et contenir des slash`
             });
         }
 

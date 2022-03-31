@@ -1,5 +1,6 @@
 const mqtt = require('mqtt');	
 const { send } = require('../config/firebase/FirebaseConfig')
+const deviceTypeModel = require('../api/models/DeviceTypeModel');
 
 const mqttServerUri = process.env.MQTT_SERVER;
 let client = mqtt.connect(`mqtt://${mqttServerUri}:1883`);
@@ -8,8 +9,8 @@ const mqttClient = {
     publish(topic, message) {
         client.publish(topic, message);
     },
-    subscribe(topic, callback) {
-        client.subscribe(topic, callback);
+    subscribe(topic) {
+        client.subscribe(topic);
     },
     subscribeToDefaultTopics() {
         const {
@@ -33,9 +34,9 @@ const mqttClient = {
 client.on("message", (topic, message) => {
 
     console.log(`Message received on topic ${topic}: ${message}`);
+    const messageJson = JSON.parse(message);
     if (topic.startsWith("EMMA")) {
         // Serialize the message in JSON
-        const messageJson = JSON.parse(message);
         if(messageJson.action === "getDevices") {
             // Get device types
             const {
@@ -115,7 +116,7 @@ client.on("message", (topic, message) => {
                                                     mqttClient.publish(device.deviceIdentifier + "/CMD", messageJson.actionMessage);
                                                 }
                                                 if(action.hasNotification) {
-                                                    send(device._home, "Action effectuée", `${emma.name} a effectué l'action ${action.message} sur ${device.name}`);
+                                                    send(device._home, "Action effectuée", `${emma.name} a effectué l'action \"${action.name}\" sur ${device.name}`);
                                                 }
                                             }
                                         }
@@ -128,6 +129,34 @@ client.on("message", (topic, message) => {
                 }
             });
         }
+    }
+    else { 
+        // Get device with deviceIdentifier
+        const {
+            deviceModel
+        } = require('../api/imports');
+
+        deviceModel.find({
+            deviceIdentifier: topic
+        }, (err, devices) => {
+            if(devices.length > 0) {
+                devices.forEach(device => {
+                    // Find device action 
+                    deviceTypeModel.findOne({
+                        _id: device._deviceType
+                    }, (err, deviceType) => {
+                        if(deviceType) {
+                            const action = deviceType.actions.find(action => action.message === messageJson.action);
+                            if(action) {
+                                if(action.hasNotification) {
+                                    send(device._home, "Action effectuée", `${device.name} a effectué l'action \"${action.name}\"`);
+                                }
+                            }
+                        }
+                    });
+                });
+            }
+        });
     }
 });
 
