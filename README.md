@@ -89,6 +89,7 @@ listener 8883
 protocol websockets
 ```
 Notre serveur est prêt à être exécuter. Voici une liste des commandes disponibles:
+
 Start:
 ```
 sudo msoquitto -c /etc/mosquitto/mosquitto.conf
