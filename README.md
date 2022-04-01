@@ -34,7 +34,7 @@ $pipwin install pyaudio
 
 
 ### Lancement de l'application
-L'environnement est désormais créer. Afin de lacer l'application, il suffit d'exécuter le script main.py se trouvant dans le répertoir Git.
+L'environnement est désormais créer. Afin de lancer l'application, il suffit d'exécuter le script main.py se trouvant dans le répertoir Git.
 
 $python main.py
 
