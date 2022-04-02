@@ -23,7 +23,6 @@ const mqttClient = {
             }
             else {
                 devices.forEach(device => {
-                    console.log(device.deviceIdentifier);
                     mqttClient.subscribe(device.deviceIdentifier);
                 });
             }

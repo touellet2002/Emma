@@ -48,106 +48,149 @@ const server = app.listen(port, () => {
 });
 connectToDB();
 
-
 const wsServer = new ws.Server({ noServer: true });
 wsServer.on('connection', (socket, req) => {
-    socket.on('message', message => {
-        // Get url
-        const url = req.url;
-        //Get url type
-        const urlType = url.split('/')[1];
-        // Get the home id
-        const homeId = url.split('/')[2];
-        // Get the token from the header
-        const token = req.headers.authorization;
+    // Get url
+    const url = req.url;
+    //Get url type
+    const urlType = url.split('/')[1];
+    // Get the home id
+    const objectId = url.split('/')[2];
+    // Get the token from the header
+    const token = req.headers.authorization;
 
-        // Subscribe to the home's devices
+    jwt.verify(token, process.env.TOKEN_SECRET, (err, decoded) => {
+        if (err) {
+            console.log(err);
+            socket.send(JSON.stringify({
+                type: 'error',
+                message: 'Invalid token'
+            }));
+            socket.close();
+            return;
+        }
+
+        const userId = decoded.user._id;
+
         const mqttServerUri = process.env.MQTT_SERVER;
         let client = mqtt.connect(`mqtt://${mqttServerUri}:1883`);
 
         client.on("message", (topic, message) => {
             console.log("Message received: " + message);
-            socket.send(JSON.stringify({
-                type: 'message',
-                message: message.toString()
-            }));
-        });
-        
-        client.on("connect", () => {
-            socket.send(JSON.stringify({
-                type: 'message',
-                message: 'Connected to MQTT server'
-            }));
+            checkUserAccess(topic, userId, (access) => {
+                console.log(access);
+                if (access) {
+                    socket.send(JSON.stringify(JSON.parse(message)));
+                }
+            }); 
         });
 
-        jwt.verify(token, process.env.TOKEN_SECRET, (err, decoded) => {
-            if (err) {
-                console.log(err);
-                socket.send(JSON.stringify({
-                    type: 'error',
-                    message: 'Invalid token'
-                }));
-                socket.close();
-                return;
-            }
+        if(urlType === 'home') {
 
-            const userId = decoded.user._id;
+            // Check if user is in the home
+            homeModel.findById(objectId, (err, home) => {
+                if (err) {
+                    console.log(err);
+                    socket.send(JSON.stringify({
+                        type: 'error',
+                        message: 'Invalid home'
+                    }));
+                    socket.close();
+                    return;
+                }
 
-            if(urlType === 'home') {
-
-                // Check if user is in the home
-                homeModel.findById(homeId, (err, home) => {
-                    if (err) {
-                        console.log(err);
-                        socket.send(JSON.stringify({
-                            type: 'error',
-                            message: 'Invalid home'
-                        }));
-                        socket.close();
-                        return;
-                    }
-    
-                    if(home) {
-                        console.log(home)
-                        console.log(userId)
-                        // Check if the user is in the home
-                        if (home._users.indexOf(userId) === -1) {
-                            if(home._owner.toString() !== userId) {
-                                socket.send(JSON.stringify({
-                                    type: 'error',
-                                    message: 'You are not the owner of this home'
-                                }));
-                                socket.close();
-                                return;
-                            }
+                if(home) {
+                    // Check if the user is in the home
+                    if (home._users.indexOf(userId) === -1) {
+                        if(home._owner.toString() !== userId) {
+                            socket.send(JSON.stringify({
+                                type: 'error',
+                                message: 'You are not the owner of this home'
+                            }));
+                            socket.close();
+                            return;
                         }
-    
-                        deviceModel.find({
-                            _home: homeId
-                        }, (err, devices) => {
-                            if (err) {
-                                console.log(err);
-                                socket.send(JSON.stringify({
-                                    type: 'error',
-                                    message: 'Invalid home'
-                                }));
-                                socket.close();
-                                return;
-                            }
-    
-                            if(devices.length > 0) {
-                                devices.forEach(device => {
-                                    console.log(device.deviceIdentifier);
-                                    client.subscribe(device.deviceIdentifier);
-                                });
-                            }
-                        });
                     }
-                });
-            }
-            else if(urlType === 'device') {
-    
-            }
+
+                    deviceModel.find({
+                        _home: objectId
+                    }, (err, devices) => {
+                        if (err) {
+                            console.log(err);
+                            socket.send(JSON.stringify({
+                                type: 'error',
+                                message: 'Invalid home'
+                            }));
+                            socket.close();
+                            return;
+                        }
+
+                        if(devices.length > 0) {
+                            devices.forEach(device => {
+                                console.log(device.deviceIdentifier);
+                                client.subscribe(device.deviceIdentifier, (err) => {
+                                    if (err) {
+                                        console.log(err);
+                                    }
+                                });
+                            });
+                        }
+                    });
+                }
+            });
+        }
+        else if(urlType === 'device') {
+            deviceModel.findById(objectId, (err, device) => {
+                if (err) {
+                    console.log(err);
+                    socket.send(JSON.stringify({
+                        type: 'error',
+                        message: 'Invalid device'
+                    }));
+                    socket.close();
+                    return;
+                }
+
+                if(device) {
+                    // Check if the user is in the home
+                    homeModel.findById(device._home, (err, home) => {
+                        if (err) {
+                            console.log(err);
+                            socket.send(JSON.stringify({
+                                type: 'error',
+                                message: 'Invalid home'
+                            }));
+                            socket.close();
+                            return;
+                        }
+
+                        if(home) {
+                            if (home._users.indexOf(userId) === -1) {
+                                if(home._owner.toString() !== userId) {
+                                    socket.send(JSON.stringify({
+                                        type: 'error',
+                                        message: 'You are not the owner of this home'
+                                    }));
+                                    socket.close();
+                                    return;
+                                }
+                            }
+
+                            console.log(device.deviceIdentifier);
+                            client.subscribe(device.deviceIdentifier, (err) => {
+                                if (err) {
+                                    console.log(err);
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+        }
+
+        socket.on("close", () => {
+            console.log("Socket closed");
+            client.end();
         });
     });
 });
@@ -157,3 +200,50 @@ server.on('upgrade', (request, socket, head) => {
         wsServer.emit('connection', ws, request);
     });
 });
+
+
+function checkUserAccess(deviceIdentifier, userId, callback) {
+    deviceModel.findOne({
+        deviceIdentifier: deviceIdentifier
+    }, (err, device) => {
+        if (err) {
+            console.log(err);
+            callback(false);
+            return;
+        }
+
+        if(device) {
+            homeModel.findById(device._home, (err, home) => {
+                if (err) {
+                    console.log(err);
+                    callback(false);
+                    return;
+                }
+
+                if(home) {
+                    if(home._users.indexOf(userId) === -1) {
+                        if(home._owner.toString() !== userId) {
+                            callback(false);
+                            return;
+                        }
+                        else {
+                            callback(true);
+                            return;
+                        }
+                    }
+                    else {
+                        callback(true);
+                        return;
+                    }
+                }
+                else {
+                    callback(false);
+                    return;
+                }
+            });
+        }
+        else {
+            callback(false);
+        }
+    });
+}
