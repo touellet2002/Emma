@@ -1,0 +1,18 @@
+module.exports = {
+    express: require('express'),
+    mongoose: require('mongoose'),
+    userModel: require('./models/UserModel'),
+    commandModel: require('./models/CommandModel'),
+    deviceModel: require('./models/DeviceModel'),
+    homeModel: require('./models/HomeModel'),
+    homeUserModel: require('./models/HomeUserModel'),
+    deviceTypeModel: require('./models/DeviceTypeModel'),
+    cryptoPlugin: require('./plugins/cryptoPlugin'),
+    jwtPlugin: require('./plugins/JwtPlugin'),
+    deviceType: require('./constants/DeviceTypes'),
+    roles: require('./constants/Roles'),
+    jwt: require('jsonwebtoken'),
+    validator: require('./plugins/ValidatorPlugin'),
+    mqttClient: require('../config/MqttConfig'),
+    firebase: require('../config/firebase/FirebaseConfig'),
+};
