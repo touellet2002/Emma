@@ -88,6 +88,7 @@ protocol mqtt
 listener 8883
 protocol websockets
 ```
+
 Notre serveur est prêt à être exécuter. Voici une liste des commandes disponibles:
 
 Start:
@@ -98,3 +99,5 @@ sudo msoquitto -c /etc/mosquitto/mosquitto.conf
 ```
 mosquitto_sub -h localhost -t <topic>
 ```
+
+Il est important de savoir que cette configuration seul ne permettra pas de communiquer en dehors d'un réseau local.  Pour cela, il faut ouvrir les port (1883 pour MQTT et 8883 pour les websockets) du routeur et du serveur en question.
